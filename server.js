@@ -826,29 +826,152 @@ app.post('/api/generate-interview-questions', async (req, res) => {
     const truncatedResume = truncateText(resumeText, 1500);
     const truncatedJobDesc = truncateText(jobDescription, 800);
 
-    // Optimized prompt with reduced tokens
-    const prompt = `Generate 10 interview questions for ${jobTitle} at ${companyName}.
+    // Comprehensive prompt with strict rules
+    const prompt = `You are an expert technical interviewer. Generate EXACTLY 20 interview questions for ${jobTitle} at ${companyName}.
 
-Resume: ${truncatedResume}
+========================================
+RESUME:
+========================================
+${truncatedResume}
 
-Job: ${truncatedJobDesc}
+========================================
+JOB DESCRIPTION:
+========================================
+${truncatedJobDesc}
 
-Format:
-- Q1-5: Conceptual (2 paragraph answers)
-- Q6-10: Coding (code + brief explanation)
+========================================
+STRICT REQUIREMENTS - MUST FOLLOW
+========================================
 
-Output as:
-Question 1: [question]
-Answer: [answer]
-...
-Question 10: [question]
-Answer: [answer]`;
+TOTAL: EXACTLY 20 questions
+
+**PART 1 (Questions 1-10): CONCEPTUAL - 50%**
+- Core concepts on PRACTICAL IMPLEMENTATION
+- Related to PROJECTS in resume and job requirements
+- Test "WHY" and "HOW" things work in production
+- Each answer: 2 paragraphs, 5-6 sentences each (10-12 sentences total)
+
+**PART 2 (Questions 11-20): CODING - 50%**
+- Intermediate to advanced difficulty
+- IDENTIFY TOP 3 SKILLS from Resume + Job Description
+- Distribute based on ROLE WEIGHTAGE (see table below)
+- Each answer: Explanation (5-6 sentences) + Complete Code (15-25 lines) + How it works (5-6 sentences) + Real-world context (5-6 sentences)
+
+========================================
+ROLE-SPECIFIC CODING DISTRIBUTION
+========================================
+
+Apply these percentages to your 10 coding questions:
+
+📊 DATA & ANALYTICS:
+• Data Analyst: SQL(50%), Python(20%), DAX(30%) → 5 SQL, 2 Python, 3 DAX
+• BI Analyst: SQL(40%), Python(20%), DAX/Tableau(40%) → 4 SQL, 2 Python, 4 DAX
+• Data Scientist: Python(60%), SQL(20%), ML(20%) → 6 Python, 2 SQL, 2 ML
+• ML Engineer: Python(50%), ML/DL(30%), MLOps(20%) → 5 Python, 3 ML, 2 MLOps
+• Data Engineer: SQL(40%), Python(40%), PySpark(20%) → 4 SQL, 4 Python, 2 PySpark
+• ETL Engineer: SQL(50%), Python(20%), ADF(30%) → 5 SQL, 2 Python, 3 ADF
+• Snowflake Engineer: SQL(50%), Python(30%), dbt(20%) → 5 SQL, 3 Python, 2 dbt
+
+🤖 AI & ML:
+• AI Engineer: Python(50%), ML/DL(30%), LLMs(20%) → 5 Python, 3 ML, 2 LLM
+• LLM Engineer: Python(50%), LLM Fine-Tuning(30%), RAG(20%) → 5 Python, 3 LLM, 2 RAG
+• Prompt Engineer: Prompt Writing(50%), Python(30%), LLM APIs(20%) → 5 Prompt, 3 Python, 2 API
+• NLP Engineer: Python(60%), NLP Libs(30%), SQL(10%) → 6 Python, 3 NLP, 1 SQL
+• CV Engineer: Python(60%), CV Libs(30%), MLOps(10%) → 6 Python, 3 CV, 1 MLOps
+
+💻 SOFTWARE:
+• Full Stack: Frontend(40%), Backend(40%), SQL(20%) → 4 JS/TS, 4 Backend, 2 SQL
+• Backend: Backend Lang(60%), SQL/NoSQL(30%), System Design(10%) → 6 Backend, 3 SQL, 1 Design
+• Frontend: JS/TS(50%), React/Angular(40%), APIs(10%) → 5 JS, 4 Framework, 1 API
+
+☁️ CLOUD & DEVOPS:
+• DevOps: CI/CD(40%), Cloud(40%), Scripting(20%) → 4 CI/CD, 4 Cloud, 2 Script
+• Cloud Engineer: Cloud(50%), IaC(30%), Scripting(20%) → 5 Cloud, 3 IaC, 2 Script
+• MLOps: Python(40%), ML Deploy(30%), K8s/Docker(30%) → 4 Python, 3 ML, 3 K8s
+
+🔒 SECURITY:
+• Security Analyst: Security Tools(40%), Networking(40%), Python(20%) → 4 Tools, 4 Network, 2 Python
+• Pentester: Python/Bash(40%), Exploit Tools(40%), Networking(20%) → 4 Python, 4 Exploit, 2 Network
+
+🌐 IOT & EMBEDDED:
+• IoT Engineer: Embedded C(40%), Python/Node(30%), IoT Cloud(30%) → 4 C, 3 Python, 3 Cloud
+• Firmware Dev: Embedded C(60%), Microcontrollers(30%), Python(10%) → 6 C, 3 MCU, 1 Python
+• Embedded Systems: C/C++(50%), Microcontrollers(30%), Python(20%) → 5 C, 3 MCU, 2 Python
+
+⚡ SEMICONDUCTOR & VLSI:
+
+Design:
+• RTL Design: Verilog/SV(60%), Digital Design(30%), Scripting(10%) → 6 Verilog, 3 Design, 1 Script
+• VLSI Design: Verilog/SV(50%), VHDL(30%), Python(20%) → 5 Verilog, 3 VHDL, 2 Python
+• FPGA: Verilog/VHDL(50%), FPGA Tools(30%), Embedded C(20%) → 5 Verilog, 3 FPGA, 2 C
+• SOC Design: SV(50%), C++(30%), Python(20%) → 5 SV, 3 C++, 2 Python
+
+Verification:
+• Verification: SV UVM(60%), SVA(30%), Python(10%) → 6 UVM, 3 SVA, 1 Python
+• ASIC Verification: UVM/SV(60%), Testbench(30%), Python(10%) → 6 UVM, 3 TB, 1 Python
+• DFT: SV(40%), DFT Tools(40%), TCL(20%) → 4 SV, 4 DFT, 2 TCL
+
+Physical Design:
+• PD Engineer: STA(40%), CAD Tools(40%), TCL(20%) → 4 STA, 4 CAD, 2 TCL
+• PD Verification: TCL/Python(50%), PnR(30%), STA(20%) → 5 TCL, 3 PnR, 2 STA
+
+Embedded/VLSI Software:
+• ASIC Embedded: C/C++(50%), RTL Interaction(30%), Python(20%) → 5 C, 3 RTL, 2 Python
+
+Analog:
+• Analog Design: Circuit Design(50%), Spice(30%), Layout(20%) → 5 Circuit, 3 Spice, 2 Layout
+• Mixed-Signal: Verilog-A(40%), Analog(40%), MATLAB(20%) → 4 Verilog-A, 4 Analog, 2 MATLAB
+
+🎮 SPECIALIZED:
+• Game Dev: C#/C++(50%), Engine(40%), Graphics(10%) → 5 C#, 4 Engine, 1 Graphics
+• Blockchain: Solidity(40%), Rust/Go(40%), Security(20%) → 4 Solidity, 4 Rust, 2 Security
+
+========================================
+FORMAT
+========================================
+
+Question 1: [Conceptual question about project/implementation]
+Answer:
+[Paragraph 1: 5-6 sentences on core concept, methodology, real-world use]
+
+[Paragraph 2: 5-6 sentences with examples, best practices, trade-offs]
+
+[Questions 2-10 follow same format]
+
+Question 11: [Coding question in primary skill]
+Answer:
+[5-6 sentences: problem, approach, complexity, why optimal]
+
+\`\`\`language
+# Complete executable code (15-25 lines)
+# Include imports, error handling, comments
+# Production-ready with edge cases
+\`\`\`
+
+[5-6 sentences: how code works, key details]
+
+[5-6 sentences: real-world use, performance, alternatives]
+
+[Questions 12-20 follow same format, distributed by role weightage]
+
+========================================
+CHECKLIST
+========================================
+☐ EXACTLY 20 questions?
+☐ Questions 1-10 conceptual (tied to resume projects)?
+☐ Questions 11-20 coding (role weightage distribution)?
+☐ Identified TOP 3 skills from resume + job description?
+☐ Calculated question distribution (e.g., 60%=6, 20%=2)?
+☐ Each conceptual: 10-12 sentences (2 paragraphs)?
+☐ Each coding: Complete code (15-25 lines) + 16-18 sentences?
+
+NOW GENERATE ALL 20 QUESTIONS.`;
 
     let questions = null;
     let lastError = null;
 
-    // Set timeout for server (can be longer than Netlify)
-    const REQUEST_TIMEOUT = 30000; // 30 seconds for local server
+    // Set timeout for comprehensive 20 question generation (2 minutes for detailed responses)
+    const REQUEST_TIMEOUT = 120000; // 120 seconds = 2 minutes
 
     // Parse Perplexity API keys
     let perplexityKeys = [];
@@ -891,7 +1014,7 @@ Answer: [answer]`;
               content: prompt
             }],
             temperature: 0.7,
-            max_tokens: 2048
+            max_tokens: 12000 // Increased for 20 comprehensive questions with code
           },
           {
             headers: {
@@ -1580,15 +1703,15 @@ Now generate the 5 projects following ALL rules above:`;
               role: 'user',
               content: prompt
             }],
-            temperature: 0.7,
-            max_tokens: 2048
+            temperature: 0.9,
+            max_tokens: 8000 // Increased for 5 comprehensive projects with full tech stacks
           },
           {
             headers: {
               'Content-Type': 'application/json',
               'Authorization': `Bearer ${currentKey}`
             },
-            timeout: 30000 // 30 second timeout
+            timeout: 90000 // 90 seconds = 1.5 minutes for detailed project generation
           }
         );
 

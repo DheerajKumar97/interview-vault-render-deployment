@@ -263,9 +263,9 @@ Now generate the 5 projects following ALL rules above:`;
                                 }
                             ],
                             temperature: 0.9,
-                            max_tokens: 2048
+                            max_tokens: 8000 // Increased for 5 comprehensive projects with full tech stacks
                         }),
-                        timeout: 60000
+                        timeout: 90000 // 90 seconds = 1.5 minutes for detailed project generation
                     });
 
                     if (!response.ok) {
@@ -319,7 +319,7 @@ Now generate the 5 projects following ALL rules above:`;
                                 temperature: 0.9,
                                 topK: 40,
                                 topP: 0.95,
-                                maxOutputTokens: 2048,
+                                maxOutputTokens: 8000, // Increased for 5 comprehensive projects with full tech stacks
                             }
                         })
                     });
@@ -377,13 +377,13 @@ Now generate the 5 projects following ALL rules above:`;
                                 body: JSON.stringify({
                                     inputs: prompt,
                                     parameters: {
-                                        max_new_tokens: 2048,
+                                        max_new_tokens: 8000, // Increased for 5 comprehensive projects with full tech stacks
                                         temperature: 0.9,
                                         top_p: 0.95,
                                         do_sample: true
                                     }
                                 }),
-                                timeout: 60000
+                                timeout: 90000 // 90 seconds = 1.5 minutes for detailed project generation
                             }
                         );
 
