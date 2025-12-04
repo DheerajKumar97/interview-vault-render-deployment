@@ -1,6 +1,33 @@
-// Netlify Function for generating interview questions with multi-provider support
-// Supports: Perplexity → Gemini → HuggingFace (in that order)
-// Uses native fetch API available in Netlify Functions (Node.js 18+)
+// Netlify Function for generating interview questions with Ollama Llama 3.2
+// Free tier compatible with optimized token usage
+// Uses native fetch API with proper timeout handling
+
+// Helper function to add timeout to fetch
+const fetchWithTimeout = async (url, options = {}, timeoutMs = 8000) => {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
+    try {
+        const response = await fetch(url, {
+            ...options,
+            signal: controller.signal
+        });
+        clearTimeout(timeoutId);
+        return response;
+    } catch (error) {
+        clearTimeout(timeoutId);
+        if (error.name === 'AbortError') {
+            throw new Error(`Request timeout after ${timeoutMs}ms`);
+        }
+        throw error;
+    }
+};
+
+// Helper function to truncate text to reduce token count
+const truncateText = (text, maxChars = 1500) => {
+    if (!text) return '';
+    return text.length > maxChars ? text.substring(0, maxChars) + '...' : text;
+};
 
 // Main handler
 export const handler = async (event, context) => {
@@ -28,6 +55,9 @@ export const handler = async (event, context) => {
     }
 
     try {
+        const startTime = Date.now();
+        console.log(`⏱️  Function started at: ${new Date().toISOString()}`);
+
         const { resumeText, jobDescription, companyName, jobTitle, apiKey, apiType } = JSON.parse(event.body || '{}');
 
         if (!resumeText || !jobDescription) {
@@ -40,193 +70,217 @@ export const handler = async (event, context) => {
 
         console.log('🤖 Generating interview questions for:', companyName, '-', jobTitle);
 
-        // Parse API keys from environment
-        let perplexityKeys = [];
-        let geminiKeys = [];
-        let huggingfaceKeys = [];
+        // Get Ollama endpoint (default to localhost for local development)
+        const OLLAMA_ENDPOINT = process.env.OLLAMA_ENDPOINT || 'http://localhost:11434';
 
-        // If user provided custom keys, use them
-        if (apiKey && apiType) {
-            if (apiType === 'perplexity') {
-                perplexityKeys = [apiKey];
-            } else if (apiType === 'gemini') {
-                geminiKeys = [apiKey];
-            } else if (apiType === 'huggingface') {
-                huggingfaceKeys = [apiKey];
-            }
-        } else {
-            // Load Perplexity keys
-            if (process.env.PERPLEXITY_API_KEY) {
-                try {
-                    const parsed = JSON.parse(process.env.PERPLEXITY_API_KEY);
-                    perplexityKeys = Array.isArray(parsed) ? parsed : [process.env.PERPLEXITY_API_KEY];
-                } catch (e) {
-                    perplexityKeys = [process.env.PERPLEXITY_API_KEY];
-                }
-            }
+        // Truncate resume and job description to manage tokens
+        const truncatedResume = truncateText(resumeText, 1500);
+        const truncatedJobDesc = truncateText(jobDescription, 800);
 
-            // Load Gemini keys
-            if (process.env.GEMINI_API_KEY) {
-                try {
-                    const parsed = JSON.parse(process.env.GEMINI_API_KEY);
-                    geminiKeys = Array.isArray(parsed) ? parsed : [process.env.GEMINI_API_KEY];
-                } catch (e) {
-                    geminiKeys = [process.env.GEMINI_API_KEY];
-                }
-            }
+        console.log(`📋 Using Ollama at: ${OLLAMA_ENDPOINT}`);
 
-            // Load HuggingFace keys
-            if (process.env.HUGGINGFACE_API_KEY) {
-                try {
-                    const parsed = JSON.parse(process.env.HUGGINGFACE_API_KEY);
-                    huggingfaceKeys = Array.isArray(parsed) ? parsed : [process.env.HUGGINGFACE_API_KEY];
-                } catch (e) {
-                    huggingfaceKeys = [process.env.HUGGINGFACE_API_KEY];
-                }
-            }
-        }
+        // Comprehensive prompt with strict rules
+        const prompt = `You are an expert technical interviewer. Generate EXACTLY 20 interview questions for ${jobTitle} at ${companyName}.
 
-        if (perplexityKeys.length === 0 && geminiKeys.length === 0 && huggingfaceKeys.length === 0) {
-            console.error('❌ No API keys found');
-            return {
-                statusCode: 401,
-                headers,
-                body: JSON.stringify({
-                    error: 'API keys not configured',
-                    requiresKey: true
-                })
-            };
-        }
+========================================
+RESUME:
+========================================
+${truncatedResume}
 
-        console.log(`📋 Found ${perplexityKeys.length} Perplexity key(s), ${geminiKeys.length} Gemini key(s), and ${huggingfaceKeys.length} HuggingFace key(s)`);
+========================================
+JOB DESCRIPTION:
+========================================
+${truncatedJobDesc}
 
-        const prompt = `You are an expert technical interviewer with deep industry experience. Generate EXACTLY 20 highly relevant interview questions with comprehensive answers based on the candidate's resume and the job description.
+========================================
+STRICT REQUIREMENTS - MUST FOLLOW
+========================================
 
-**Candidate's Resume:**
-${resumeText}
+TOTAL: EXACTLY 20 questions
 
-**Job Description for ${jobTitle} at ${companyName}:**
-${jobDescription}
+**PART 1 (Questions 1-10): CONCEPTUAL - 50%**
+- Core concepts on PRACTICAL IMPLEMENTATION
+- Related to PROJECTS in resume and job requirements
+- Test "WHY" and "HOW" things work in production
+- Each answer: EXACTLY 2-3 lines ONLY (MAX 60 words, extremely concise)
+- CRITICAL: Use **bold** for ALL technical keywords, formulas, metrics, tools, and key concepts
+- Example: "**React Hooks** like **useState** and **useEffect** manage state and side effects. **Virtual DOM** uses **O(n)** reconciliation. **useMemo** prevents unnecessary re-renders."
 
-**QUESTION DISTRIBUTION REQUIREMENTS:**
-- Generate EXACTLY 20 questions total
-- 10 questions (50%) MUST be CONCEPTUAL based on real-time experience, projects, and scenarios
-- 10 questions (50%) MUST be CODING questions with detailed explanations and complete code examples
-- ALL questions must be directly relevant to skills mentioned in the resume and job description
-- Match questions to the role's primary programming languages and technologies
+**PART 2 (Questions 11-20): CODING - 50%**
+- Advanced difficulty
+- IDENTIFY TOP 3 SKILLS from Resume + Job Description
+- Distribute based on ROLE WEIGHTAGE (see table below)
+- Each answer: Brief explanation (2-3 sentences with **bold** keywords) + Complete Code (15-25 lines) + How it works (3-4 sentences with **bold** keywords explaining performance and real-world use)
 
-**ROLE-SPECIFIC LANGUAGE GUIDELINES:**
-Tailor questions based on the job role and use appropriate languages from this reference:
+========================================
+ROLE-SPECIFIC CODING DISTRIBUTION
+========================================
 
-🖥️ SOFTWARE & DATA ROLES:
-• Full Stack Engineer: JavaScript/TypeScript, Python/Java, SQL
-• Backend Developer: Java, Python, Go
-• Frontend Developer: JavaScript, TypeScript, HTML/CSS
-• Data Analyst: SQL, Python, R
-• Data Engineer: Python, SQL, Scala
-• Data Scientist: Python, R, SQL
-• Machine Learning Engineer: Python, C++, Java
-• AI/LLM Engineer: Python, C++, Rust
-• Cloud Engineer: Python, Go, Java
-• DevOps Engineer: Python, Go, Bash
-• MLOps Engineer: Python, Go, Shell
-• Cybersecurity Engineer: Python, C, PowerShell
-• Mobile App Developer: Kotlin, Swift, Dart
-• Game Developer: C#, C++, Python
-• Blockchain Developer: Solidity, Rust, Go
+Apply these percentages to your 10 coding questions:
 
-⚙️ HARDWARE/SEMICONDUCTOR/VLSI ROLES:
-• RTL Design Engineer: SystemVerilog, Verilog, TCL/Python
-• VLSI Design Engineer: Verilog/SystemVerilog, VHDL, Python/Perl
-• Design Verification Engineer: SystemVerilog (UVM), Verilog, Python/Perl
-• ASIC Verification Engineer: SystemVerilog + UVM, Verilog, Python/C++
-• FPGA Prototyping Engineer: VHDL, Verilog, TCL/Python
-• Physical Design Engineer: TCL, Python, Perl
-• DFT Engineer: SystemVerilog, TCL, Python
-• CAD/EDA Tools Engineer: Python, Perl, TCL
-• Embedded Systems Engineer: C, C++, Assembly
-• Firmware Engineer: C, C++, Python
-• Semiconductor Test Engineer: C, Python, VBScript/LabVIEW
-• Mixed-Signal Design Engineer: Verilog-A/Verilog-AMS, SystemVerilog, MATLAB
-• Analog Layout Engineer: SKILL (Cadence), Python, TCL
-• DSP Engineer: C, C++, MATLAB
-• SOC Architect/SOC Design Engineer: SystemVerilog, C++, Python
+📊 DATA & ANALYTICS:
+• Data Analyst: SQL(50%), Python(20%), DAX(30%) → 5 SQL, 2 Python, 3 DAX
+• BI Analyst: SQL(40%), Python(20%), DAX/Tableau(40%) → 4 SQL, 2 Python, 4 DAX
+• Data Scientist: Python(60%), SQL(20%), ML(20%) → 6 Python, 2 SQL, 2 ML
+• ML Engineer: Python(50%), ML/DL(30%), MLOps(20%) → 5 Python, 3 ML, 2 MLOps
+• Data Engineer: SQL(40%), Python(40%), PySpark(20%) → 4 SQL, 4 Python, 2 PySpark
+• ETL Engineer: SQL(50%), Python(20%), ADF(30%) → 5 SQL, 2 Python, 3 ADF
+• Snowflake Engineer: SQL(50%), Python(30%), dbt(20%) → 5 SQL, 3 Python, 2 dbt
 
-**FORMAT FOR CONCEPTUAL QUESTIONS (50% - 10 Questions):**
+🤖 AI & ML:
+• AI Engineer: Python(50%), ML/DL(30%), LLMs(20%) → 5 Python, 3 ML, 2 LLM
+• LLM Engineer: Python(50%), LLM Fine-Tuning(30%), RAG(20%) → 5 Python, 3 LLM, 2 RAG
+• Prompt Engineer: Prompt Writing(50%), Python(30%), LLM APIs(20%) → 5 Prompt, 3 Python, 2 API
+• NLP Engineer: Python(60%), NLP Libs(30%), SQL(10%) → 6 Python, 3 NLP, 1 SQL
+• CV Engineer: Python(60%), CV Libs(30%), MLOps(10%) → 6 Python, 3 CV, 1 MLOps
 
-Question [Number]: [Specific scenario-based or experience-based question related to real projects]
+💻 SOFTWARE:
+• Full Stack: Frontend(40%), Backend(40%), SQL(20%) → 4 JS/TS, 4 Backend, 2 SQL
+• Backend: Backend Lang(60%), SQL/NoSQL(30%), System Design(10%) → 6 Backend, 3 SQL, 1 Design
+• Frontend: JS/TS(50%), React/Angular(40%), APIs(10%) → 5 JS, 4 Framework, 1 API
+
+☁️ CLOUD & DEVOPS:
+• DevOps: CI/CD(40%), Cloud(40%), Scripting(20%) → 4 CI/CD, 4 Cloud, 2 Script
+• Cloud Engineer: Cloud(50%), IaC(30%), Scripting(20%) → 5 Cloud, 3 IaC, 2 Script
+• MLOps: Python(40%), ML Deploy(30%), K8s/Docker(30%) → 4 Python, 3 ML, 3 K8s
+
+🔒 SECURITY:
+• Security Analyst: Security Tools(40%), Networking(40%), Python(20%) → 4 Tools, 4 Network, 2 Python
+• Pentester: Python/Bash(40%), Exploit Tools(40%), Networking(20%) → 4 Python, 4 Exploit, 2 Network
+
+🌐 IOT & EMBEDDED:
+• IoT Engineer: Embedded C(40%), Python/Node(30%), IoT Cloud(30%) → 4 C, 3 Python, 3 Cloud
+• Firmware Dev: Embedded C(60%), Microcontrollers(30%), Python(10%) → 6 C, 3 MCU, 1 Python
+• Embedded Systems: C/C++(50%), Microcontrollers(30%), Python(20%) → 5 C, 3 MCU, 2 Python
+
+⚡ SEMICONDUCTOR & VLSI:
+
+Design:
+• RTL Design: Verilog/SV(60%), Digital Design(30%), Scripting(10%) → 6 Verilog, 3 Design, 1 Script
+• VLSI Design: Verilog/SV(50%), VHDL(30%), Python(20%) → 5 Verilog, 3 VHDL, 2 Python
+• FPGA: Verilog/VHDL(50%), FPGA Tools(30%), Embedded C(20%) → 5 Verilog, 3 FPGA, 2 C
+• SOC Design: SV(50%), C++(30%), Python(20%) → 5 SV, 3 C++, 2 Python
+
+Verification:
+• Verification: SV UVM(60%), SVA(30%), Python(10%) → 6 UVM, 3 SVA, 1 Python
+• ASIC Verification: UVM/SV(60%), Testbench(30%), Python(10%) → 6 UVM, 3 TB, 1 Python
+• DFT: SV(40%), DFT Tools(40%), TCL(20%) → 4 SV, 4 DFT, 2 TCL
+
+Physical Design:
+• PD Engineer: STA(40%), CAD Tools(40%), TCL(20%) → 4 STA, 4 CAD, 2 TCL
+• PD Verification: TCL/Python(50%), PnR(30%), STA(20%) → 5 TCL, 3 PnR, 2 STA
+
+Embedded/VLSI Software:
+• ASIC Embedded: C/C++(50%), RTL Interaction(30%), Python(20%) → 5 C, 3 RTL, 2 Python
+
+Analog:
+• Analog Design: Circuit Design(50%), Spice(30%), Layout(20%) → 5 Circuit, 3 Spice, 2 Layout
+• Mixed-Signal: Verilog-A(40%), Analog(40%), MATLAB(20%) → 4 Verilog-A, 4 Analog, 2 MATLAB
+
+🎮 SPECIALIZED:
+• Game Dev: C#/C++(50%), Engine(40%), Graphics(10%) → 5 C#, 4 Engine, 1 Graphics
+• Blockchain: Solidity(40%), Rust/Go(40%), Security(20%) → 4 Solidity, 4 Rust, 2 Security
+
+========================================
+FORMAT - FOLLOW EXACTLY
+========================================
+
+DO NOT include section headers like "PART 1" or "CONCEPTUAL QUESTIONS". Start directly with Question 1.
+
+Question 1: [Conceptual question about project/implementation]
 Answer:
-[Paragraph 1: 5-6 lines covering the core concept, approach, methodology, and real-world considerations. Discuss how this applies in production environments, team scenarios, or actual project implementations.]
+[2-3 lines ONLY with **bold** keywords for technical terms, formulas, metrics. Maximum 60 words total.]
 
-[Paragraph 2: 5-6 lines providing specific examples, best practices, trade-offs, challenges faced in real scenarios, and how experienced professionals handle this situation. Include metrics, tools, or frameworks where relevant.]
-
-**FORMAT FOR CODING QUESTIONS (50% - 10 Questions):**
-
-Question [Number]: [Specific coding problem or implementation challenge]
+Question 2: [Conceptual question]
 Answer:
-[5-6 lines of explanation covering the problem, approach, algorithm/data structure choice, time/space complexity, and why this solution is optimal]
+[2-3 lines ONLY with **bold** keywords. Maximum 60 words total.]
 
-\`\`\`[language]
-[Complete, production-ready, well-commented code that actually runs]
-[Include proper error handling, edge cases, and best practices]
-[Code should be 15-20 lines minimum for meaningful implementation]
+[Questions 3-10 follow same short format]
+
+Question 11: [Coding question in primary skill]
+Answer:
+[2-3 sentences with **bold** keywords: problem, approach, complexity]
+
+\`\`\`language
+# Complete executable code (15-25 lines)
+# Include imports, error handling, comments
+# Production-ready with edge cases
 \`\`\`
 
-[5-6 lines explaining how the code works, key implementation details, and what makes this solution effective]
+[3-4 sentences with **bold** keywords: how code works, key details, performance, real-world use]
 
-[5-6 lines covering real-world applications, performance considerations, alternative approaches, or common pitfalls to avoid]
+[Questions 12-20 follow same format, distributed by role weightage]
 
-**CRITICAL REQUIREMENTS FOR ALL 20 QUESTIONS:**
-✅ Questions 1-10: Conceptual/Experience-based (10-12 lines each, 2 paragraphs)
-✅ Questions 11-20: Coding questions (5-6 lines explanation + complete code + 5-6 lines details + 5-6 lines real-world context)
-✅ Every coding question MUST include working code in triple backticks with language specification
-✅ Code must be complete, executable, and production-quality (15-20 lines minimum)
-✅ Match programming languages to the job role and resume
-✅ Focus on technologies and skills explicitly mentioned in the job description
-✅ Avoid generic questions - make them specific to the candidate's background
-✅ Include proper error handling, edge cases, and comments in code
-✅ For hardware/VLSI roles: Include SystemVerilog/Verilog/VHDL as appropriate
-✅ For data roles: Include SQL queries with JOINs, aggregations, and optimizations
-✅ For backend roles: Include API design, database interactions, and system design
-✅ For frontend roles: Include React/Vue/Angular components with state management
+========================================
+CRITICAL RULES
+========================================
+❌ NO section headers like "--- PART 1: CONCEPTUAL QUESTIONS (1-10) ---"
+❌ NO separators or dividers between questions
+✅ Start IMMEDIATELY with "Question 1: ..."
+✅ Use **bold** for technical terms, formulas, metrics, tools
+✅ Conceptual answers: 2-3 lines MAXIMUM (under 60 words)
+✅ EXACTLY 20 questions numbered sequentially from 1 to 20
 
-Generate all 20 questions NOW following this EXACT format. Make answers comprehensive, practical, and directly relevant to the candidate's experience and the job requirements.`;
+========================================
+CHECKLIST
+========================================
+☐ EXACTLY 20 questions numbered 1-20?
+☐ NO section headers or separator lines?
+☐ Questions 1-10 conceptual (2-3 lines with **bold**)?
+☐ Questions 11-20 coding (role weightage distribution)?
+☐ Every answer uses **bold** for technical keywords?
+
+NOW GENERATE ALL 20 QUESTIONS STARTING WITH "Question 1:":`;
 
         let questions = null;
-        let usedProvider = null;
         let lastError = null;
 
-        // ============================================
-        // PHASE 1: TRY ALL PERPLEXITY KEYS
-        // ============================================
+        // Set timeout for comprehensive 20 question generation (2 minutes for detailed responses)
+        const REQUEST_TIMEOUT = 120000; // 120 seconds = 2 minutes
+
+        // Parse Perplexity API keys
+        let perplexityKeys = [];
+        if (process.env.PERPLEXITY_API_KEY) {
+            try {
+                const parsed = JSON.parse(process.env.PERPLEXITY_API_KEY);
+                perplexityKeys = Array.isArray(parsed) ? parsed : [process.env.PERPLEXITY_API_KEY];
+            } catch (e) {
+                perplexityKeys = [process.env.PERPLEXITY_API_KEY];
+            }
+        }
+
+        // PHASE 1: Try Perplexity keys first
         if (perplexityKeys.length > 0) {
-            console.log('\n🔵 PHASE 1: Trying Perplexity API Keys\n');
+            console.log('🔵 PHASE 1: Trying Perplexity API\n');
 
             for (let i = 0; i < perplexityKeys.length; i++) {
                 const currentKey = perplexityKeys[i].trim();
                 const maskedKey = currentKey.substring(0, 8) + '...' + currentKey.substring(currentKey.length - 4);
                 console.log(`🔑 [PERPLEXITY ${i + 1}/${perplexityKeys.length}] Trying: ${maskedKey}`);
 
+                const attemptStart = Date.now();
+
                 try {
-                    const response = await fetch('https://api.perplexity.ai/chat/completions', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'Authorization': `Bearer ${currentKey}`
-                        },
-                        body: JSON.stringify({
-                            model: 'sonar',
-                            messages: [
-                                {
+                    const response = await fetchWithTimeout(
+                        'https://api.perplexity.ai/chat/completions',
+                        {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'Authorization': `Bearer ${currentKey}`
+                            },
+                            body: JSON.stringify({
+                                model: 'sonar',
+                                messages: [{
                                     role: 'user',
                                     content: prompt
-                                }
-                            ],
-                            temperature: 0.7,
-                            max_tokens: 9072
-                        }),
-                        timeout: 120000
-                    });
+                                }],
+                                temperature: 0.7,
+                                max_tokens: 12000 // Increased for 20 comprehensive questions with code
+                            })
+                        },
+                        REQUEST_TIMEOUT
+                    );
 
                     if (!response.ok) {
                         const errorData = await response.json().catch(() => ({}));
@@ -236,179 +290,113 @@ Generate all 20 questions NOW following this EXACT format. Make answers comprehe
                     const data = await response.json();
                     questions = data.choices?.[0]?.message?.content;
 
-                    if (questions) {
-                        usedProvider = 'perplexity';
-                        console.log(`✅ [PERPLEXITY ${i + 1}/${perplexityKeys.length}] SUCCESS!`);
-                        break;
+                    if (questions && questions.length > 100) {
+                        const totalTime = Date.now() - startTime;
+                        console.log(`✅ [PERPLEXITY ${i + 1}/${perplexityKeys.length}] SUCCESS! (${Date.now() - attemptStart}ms)`);
+                        console.log(`⏱️  Total execution time: ${totalTime}ms`);
+
+                        return {
+                            statusCode: 200,
+                            headers,
+                            body: JSON.stringify({
+                                success: true,
+                                questions: questions,
+                                provider: 'perplexity',
+                                model: 'llama-3.1-sonar-small-128k-online',
+                                executionTime: totalTime
+                            })
+                        };
                     }
                 } catch (error) {
                     lastError = error;
-                    console.error(`❌ [PERPLEXITY ${i + 1}/${perplexityKeys.length}] FAILED: ${error.message}`);
+                    const attemptTime = Date.now() - attemptStart;
+                    console.error(`❌ [PERPLEXITY ${i + 1}/${perplexityKeys.length}] FAILED: ${error.message} (${attemptTime}ms)`);
+
                     if (i < perplexityKeys.length - 1) {
                         console.log(`   ⏭️  Trying next Perplexity key...\n`);
                     }
                 }
             }
+
+            console.log('❌ All Perplexity keys failed. Falling back to Groq...\n');
         }
 
-        // ============================================
-        // PHASE 2: IF PERPLEXITY FAILED, TRY GEMINI
-        // ============================================
-        if (!questions && geminiKeys.length > 0) {
-            console.log('🟢 PHASE 2: Switching to Gemini API Keys\n');
-            const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-lite:generateContent';
+        // PHASE 2: Fallback to Groq (FREE & FAST)
+        const GROQ_API_KEY = process.env.GROQ_API_KEY;
 
-            for (let i = 0; i < geminiKeys.length; i++) {
-                const currentKey = geminiKeys[i].trim();
-                const maskedKey = currentKey.substring(0, 8) + '...' + currentKey.substring(currentKey.length - 4);
-                console.log(`🔑 [GEMINI ${i + 1}/${geminiKeys.length}] Trying: ${maskedKey}`);
+        if (GROQ_API_KEY) {
+            console.log('⚡ PHASE 2: Using Groq API (Fallback)\n');
 
-                try {
-                    const response = await fetch(`${GEMINI_API_URL}?key=${currentKey}`, {
+            try {
+                const attemptStart = Date.now();
+
+                const response = await fetchWithTimeout(
+                    'https://api.groq.com/openai/v1/chat/completions',
+                    {
                         method: 'POST',
                         headers: {
-                            'Content-Type': 'application/json'
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${GROQ_API_KEY}`
                         },
                         body: JSON.stringify({
-                            contents: [{
-                                parts: [{
-                                    text: prompt
-                                }]
+                            model: 'llama-3.3-70b-versatile',
+                            messages: [{
+                                role: 'user',
+                                content: prompt
                             }],
-                            generationConfig: {
-                                temperature: 0.7,
-                                topK: 40,
-                                topP: 0.95,
-                                maxOutputTokens: 9072,
-                            }
+                            temperature: 0.7,
+                            max_tokens: 12000 // Increased for 20 comprehensive questions with code
                         })
-                    });
+                    },
+                    REQUEST_TIMEOUT
+                );
 
-                    if (!response.ok) {
-                        const errorData = await response.json().catch(() => ({}));
-                        throw new Error(errorData.error?.message || `HTTP ${response.status}`);
-                    }
-
-                    const data = await response.json();
-                    questions = data.candidates?.[0]?.content?.parts?.[0]?.text;
-
-                    if (questions) {
-                        usedProvider = 'gemini';
-                        console.log(`✅ [GEMINI ${i + 1}/${geminiKeys.length}] SUCCESS!`);
-                        break;
-                    }
-                } catch (error) {
-                    lastError = error;
-                    console.error(`❌ [GEMINI ${i + 1}/${geminiKeys.length}] FAILED: ${error.message}`);
-                    if (i < geminiKeys.length - 1) {
-                        console.log(`   ⏭️  Trying next Gemini key...\n`);
-                    }
+                if (!response.ok) {
+                    const errorData = await response.json().catch(() => ({}));
+                    throw new Error(errorData.error?.message || `HTTP ${response.status}`);
                 }
+
+                const data = await response.json();
+                questions = data.choices?.[0]?.message?.content;
+
+                if (questions && questions.length > 100) {
+                    const totalTime = Date.now() - startTime;
+                    console.log(`✅ Groq SUCCESS! (${Date.now() - attemptStart}ms)`);
+                    console.log(`⏱️  Total execution time: ${totalTime}ms`);
+
+                    return {
+                        statusCode: 200,
+                        headers,
+                        body: JSON.stringify({
+                            success: true,
+                            questions: questions,
+                            provider: 'groq',
+                            model: 'llama-3.3-70b',
+                            executionTime: totalTime
+                        })
+                    };
+                }
+            } catch (error) {
+                lastError = error;
+                console.error(`❌ Groq FAILED: ${error.message}`);
             }
         }
 
-        // ============================================
-        // PHASE 3: IF GEMINI FAILED, TRY HUGGINGFACE
-        // ============================================
-        if (!questions && huggingfaceKeys.length > 0) {
-            console.log('🟡 PHASE 3: Switching to HuggingFace API Keys\n');
+        // All providers failed
+        console.log('❌ All providers failed\n');
 
-            const huggingfaceModels = [
-                { name: "Qwen 2.5", id: "Qwen/Qwen2.5-72B-Instruct" },
-                { name: "Llama 3.1", id: "meta-llama/Llama-3.1-70B-Instruct" }
-            ];
-
-            for (let i = 0; i < huggingfaceKeys.length; i++) {
-                const currentKey = huggingfaceKeys[i].trim();
-                const maskedKey = currentKey.substring(0, 5) + '...' + currentKey.substring(currentKey.length - 4);
-
-                for (const model of huggingfaceModels) {
-                    console.log(`🔑 [HUGGINGFACE ${i + 1}/${huggingfaceKeys.length}] Key: ${maskedKey} | Model: ${model.name}`);
-
-                    try {
-                        const response = await fetch(
-                            `https://api-inference.huggingface.co/models/${model.id}`,
-                            {
-                                method: 'POST',
-                                headers: {
-                                    'Content-Type': 'application/json',
-                                    'Authorization': `Bearer ${currentKey}`
-                                },
-                                body: JSON.stringify({
-                                    inputs: prompt,
-                                    parameters: {
-                                        max_new_tokens: 9072,
-                                        temperature: 0.7,
-                                        top_p: 0.95,
-                                        do_sample: true
-                                    }
-                                }),
-                                timeout: 60000
-                            }
-                        );
-
-                        if (!response.ok) {
-                            const errorData = await response.json().catch(() => ({}));
-                            throw new Error(errorData.error || `HTTP ${response.status}`);
-                        }
-
-                        const data = await response.json();
-                        let generatedText = null;
-
-                        if (Array.isArray(data)) {
-                            generatedText = data[0]?.generated_text;
-                        } else if (data.generated_text) {
-                            generatedText = data.generated_text;
-                        } else if (typeof data === 'string') {
-                            generatedText = data;
-                        }
-
-                        // Remove the prompt from the response if it's included
-                        if (generatedText && generatedText.includes(prompt)) {
-                            generatedText = generatedText.replace(prompt, '').trim();
-                        }
-
-                        if (generatedText && generatedText.length > 100) {
-                            questions = generatedText;
-                            usedProvider = 'huggingface';
-                            console.log(`✅ [HUGGINGFACE ${i + 1}/${huggingfaceKeys.length}] SUCCESS!`);
-                            break;
-                        }
-                    } catch (error) {
-                        lastError = error;
-                        console.error(`❌ [HUGGINGFACE ${i + 1}/${huggingfaceKeys.length}] FAILED - ${model.name}: ${error.message}`);
-                    }
-                }
-
-                // Break outer loop if we got questions
-                if (questions) break;
-            }
-        }
-
-        // If we got questions, return them
-        if (questions) {
-            console.log(`✅ Interview questions generated successfully using ${usedProvider}`);
-            return {
-                statusCode: 200,
-                headers,
-                body: JSON.stringify({
-                    success: true,
-                    questions: questions,
-                    provider: usedProvider
-                })
-            };
-        }
-
-        // All keys failed - return error and ask for custom key
-        console.error(`❌ All API keys failed. Last error:`, lastError?.message);
+        // If all providers failed, return error
+        const totalTime = Date.now() - startTime;
+        console.error(`❌ All providers failed. Error:`, lastError?.message);
+        console.log(`⏱️  Total execution time: ${totalTime}ms`);
 
         return {
             statusCode: 500,
             headers,
             body: JSON.stringify({
-                error: 'All API keys exhausted. Please provide your own API key.',
+                error: 'Failed to generate questions',
                 message: lastError?.message || 'Failed to generate interview questions',
-                requiresKey: true
+                hint: 'Set PERPLEXITY_API_KEY or GROQ_API_KEY environment variable in Netlify'
             })
         };
 

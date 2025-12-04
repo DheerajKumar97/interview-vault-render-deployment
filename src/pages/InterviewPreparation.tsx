@@ -397,22 +397,26 @@ const InterviewPreparation = () => {
             return 'code';
         };
 
+        // Function to convert **bold** markdown to HTML
+        const convertBoldToHtml = (text: string): JSX.Element[] => {
+            const parts = text.split(/(\*\*[^*]+\*\*)/g);
+            return parts.map((part, idx) => {
+                if (part.startsWith('**') && part.endsWith('**')) {
+                    const boldText = part.slice(2, -2);
+                    return <strong key={idx} className="font-bold text-blue-900">{boldText}</strong>;
+                }
+                return <span key={idx}>{part}</span>;
+            });
+        };
+
+        // Remove escape characters but preserve **bold** markers
         let cleanedText = text
-            .replace(/\\\*/g, '')
-            .replace(/\*\*/g, '')
-            .replace(/\*/g, '')
             .replace(/\\\//g, '')
             .replace(/\\/g, '')
             .trim();
 
-        // Split by question numbers (1. 2. 3. etc.) or (Question 1:, Question 2:, etc.)
-        const firstQuestionMatch = cleanedText.match(/^(?:Question\s+)?1[\.:]\s+/m);
-        if (firstQuestionMatch) {
-            const firstQuestionIndex = cleanedText.indexOf(firstQuestionMatch[0]);
-            if (firstQuestionIndex > 0) {
-                cleanedText = cleanedText.substring(firstQuestionIndex);
-            }
-        }
+        // Remove any section headers like "--- PART 1: ..." but keep questions
+        cleanedText = cleanedText.replace(/^---.*?---$/gm, '').trim();
 
         // Split by question numbers (1. 2. 3. etc.) or (Question 1:, Question 2:, etc.)
         let questions = cleanedText.split(/(?=^(?:Question\s+)?\d+[\.:]\s+)/gm).filter(Boolean);
@@ -494,7 +498,7 @@ const InterviewPreparation = () => {
                         if (paragraphText && paragraphText.length > 10) {
                             result.push(
                                 <p key={`paragraph-${result.length}`} className="mb-4 text-gray-900 leading-relaxed text-justify">
-                                    {paragraphText}
+                                    {convertBoldToHtml(paragraphText)}
                                 </p>
                             );
                         }
@@ -599,7 +603,7 @@ const InterviewPreparation = () => {
                                     </h4>
                                     {content && content.length > 10 && (
                                         <p className="text-gray-900 leading-relaxed">
-                                            {content}
+                                            {convertBoldToHtml(content)}
                                         </p>
                                     )}
                                 </div>

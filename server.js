@@ -849,9 +849,9 @@ TOTAL: EXACTLY 20 questions
 - Core concepts on PRACTICAL IMPLEMENTATION
 - Related to PROJECTS in resume and job requirements
 - Test "WHY" and "HOW" things work in production
-- Each answer: EXACTLY 5-6 lines (4-5 sentences total)
-- IMPORTANT: Use **bold** for ALL technical keywords, formulas, metrics, and important concepts
-- Example: "**React Hooks** like **useState** and **useEffect** manage component state and side effects. The **Virtual DOM** reconciliation algorithm uses **O(n)** complexity for efficient updates. **Memoization** with **useMemo** prevents unnecessary re-renders when dependencies don't change."
+- Each answer: EXACTLY 2-3 lines ONLY (MAX 60 words, extremely concise)
+- CRITICAL: Use **bold** for ALL technical keywords, formulas, metrics, tools, and key concepts
+- Example: "**React Hooks** like **useState** and **useEffect** manage state and side effects. **Virtual DOM** uses **O(n)** reconciliation. **useMemo** prevents unnecessary re-renders."
 
 **PART 2 (Questions 11-20): CODING - 50%**
 - Advanced difficulty
@@ -929,18 +929,24 @@ Analog:
 • Blockchain: Solidity(40%), Rust/Go(40%), Security(20%) → 4 Solidity, 4 Rust, 2 Security
 
 ========================================
-FORMAT
+FORMAT - FOLLOW EXACTLY
 ========================================
+
+DO NOT include section headers like "PART 1" or "CONCEPTUAL QUESTIONS". Start directly with Question 1.
 
 Question 1: [Conceptual question about project/implementation]
 Answer:
-[4-5 sentences with **bold** keywords for technical terms, formulas, concepts with real-world examples. Keep it concise and focused.]
+[2-3 lines ONLY with **bold** keywords for technical terms, formulas, metrics. Maximum 60 words total.]
 
-[Questions 2-10 follow same format]
+Question 2: [Conceptual question]
+Answer:
+[2-3 lines ONLY with **bold** keywords. Maximum 60 words total.]
+
+[Questions 3-10 follow same short format]
 
 Question 11: [Coding question in primary skill]
 Answer:
-[4-5 sentences with **bold** keywords: problem, approach, complexity, why optimal]
+[2-3 sentences with **bold** keywords: problem, approach, complexity]
 
 \`\`\`language
 # Complete executable code (15-25 lines)
@@ -948,24 +954,30 @@ Answer:
 # Production-ready with edge cases
 \`\`\`
 
-[4-5 sentences with **bold** keywords: how code works, key details]
-
-[4-5 sentences: real-world use, performance, alternatives]
+[3-4 sentences with **bold** keywords: how code works, key details, performance, real-world use]
 
 [Questions 12-20 follow same format, distributed by role weightage]
 
 ========================================
+CRITICAL RULES
+========================================
+❌ NO section headers like "--- PART 1: CONCEPTUAL QUESTIONS (1-10) ---"
+❌ NO separators or dividers between questions
+✅ Start IMMEDIATELY with "Question 1: ..."
+✅ Use **bold** for technical terms, formulas, metrics, tools
+✅ Conceptual answers: 2-3 lines MAXIMUM (under 60 words)
+✅ EXACTLY 20 questions numbered sequentially from 1 to 20
+
+========================================
 CHECKLIST
 ========================================
-☐ EXACTLY 20 questions?
-☐ Questions 1-10 conceptual (tied to resume projects)?
+☐ EXACTLY 20 questions numbered 1-20?
+☐ NO section headers or separator lines?
+☐ Questions 1-10 conceptual (2-3 lines with **bold**)?
 ☐ Questions 11-20 coding (role weightage distribution)?
-☐ Identified TOP 3 skills from resume + job description?
-☐ Calculated question distribution (e.g., 60%=6, 20%=2)?
-☐ Each conceptual: 4-5 sentences with **bold** keywords?
-☐ Each coding: Complete code (15-25 lines) + 6-9 sentences with **bold** keywords?
+☐ Every answer uses **bold** for technical keywords?
 
-NOW GENERATE ALL 20 QUESTIONS.`;
+NOW GENERATE ALL 20 QUESTIONS STARTING WITH "Question 1:":`;
 
     let questions = null;
     let lastError = null;
