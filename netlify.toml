@@ -3,6 +3,17 @@
   publish = "dist"
   functions = "netlify/functions"
 
+[functions]
+  [functions.generate-interview-questions]
+    timeout = 250
+  [functions.generate-projects]
+    timeout = 250
+
+[dev]
+  targetPort = 8080
+  framework = "#custom"
+  command = "npm run dev"
+
 [[redirects]]
   from = "/*"
   to = "/index.html"

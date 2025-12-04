@@ -806,9 +806,9 @@ ${resumeText}
 ${jobDescription}
 
 **QUESTION DISTRIBUTION REQUIREMENTS:**
-- Generate EXACTLY 30 questions total
-- 15 questions (50%) MUST be CONCEPTUAL based on real-time experience, projects, and scenarios
-- 15 questions (50%) MUST be CODING questions with detailed explanations and complete code examples
+- Generate EXACTLY 20 questions total
+- 10 questions (50%) MUST be CONCEPTUAL based on real-time experience, projects, and scenarios
+- 10 questions (50%) MUST be CODING questions with detailed explanations and complete code examples
 - ALL questions must be directly relevant to skills mentioned in the resume and job description
 - Match questions to the role's primary programming languages and technologies
 
@@ -849,7 +849,7 @@ Tailor questions based on the job role and use appropriate languages from this r
 • DSP Engineer: C, C++, MATLAB
 • SOC Architect/SOC Design Engineer: SystemVerilog, C++, Python
 
-**FORMAT FOR CONCEPTUAL QUESTIONS (50% - 12 Questions):**
+**FORMAT FOR CONCEPTUAL QUESTIONS (50% - 10 Questions):**
 
 Question [Number]: [Specific scenario-based or experience-based question related to real projects]
 Answer:
@@ -865,7 +865,7 @@ When dealing with slow queries in production, the first step is to identify the 
 
 In one project, I reduced query time from 45 seconds to 2 seconds by adding composite indexes on frequently filtered columns and rewriting a subquery as a JOIN. I used query profiling to identify that a WHERE clause wasn't utilizing indexes properly. After optimization, I set up alerts for query performance degradation and documented the changes for the team. This experience taught me to always measure performance before and after changes, consider the trade-off between read and write performance when adding indexes, and involve DBAs for complex optimization scenarios.
 
-**FORMAT FOR CODING QUESTIONS (50% - 8 Questions):**
+**FORMAT FOR CODING QUESTIONS (50% - 10 Questions):**
 
 Question [Number]: [Specific coding problem or implementation challenge]
 Answer:
@@ -944,11 +944,11 @@ The code maintains a queue of timestamps for each user and removes expired entri
 
 In production APIs, rate limiters prevent abuse and ensure fair resource usage. For distributed systems, use Redis with ZSET for shared state across servers. Consider different limits for authenticated vs anonymous users and implement exponential backoff for repeated violations.
 
-**CRITICAL REQUIREMENTS FOR ALL 30 QUESTIONS:**
-✅ Questions 1-15: Conceptual/Experience-based (10 lines each, 2 paragraphs)
-✅ Questions 16-30: Coding questions (7 lines explanation + complete code + 7 lines details + 7 lines real-world context)
+**CRITICAL REQUIREMENTS FOR ALL 20 QUESTIONS:**
+✅ Questions 1-10: Conceptual/Experience-based (10-12 lines each, 2 paragraphs)
+✅ Questions 11-20: Coding questions (5-6 lines explanation + complete code + 5-6 lines details + 5-6 lines real-world context)
 ✅ Every coding question MUST include working code in triple backticks with language specification
-✅ Code must be complete, executable, and production-quality (15-30 lines minimum)
+✅ Code must be complete, executable, and production-quality (15-20 lines minimum)
 ✅ Match programming languages to the job role and resume
 ✅ Focus on technologies and skills explicitly mentioned in the job description
 ✅ Avoid generic questions - make them specific to the candidate's background
@@ -958,7 +958,7 @@ In production APIs, rate limiters prevent abuse and ensure fair resource usage. 
 ✅ For backend roles: Include API design, database interactions, and system design
 ✅ For frontend roles: Include React/Vue/Angular components with state management
 
-Generate all 30 questions NOW following this EXACT format. Make answers comprehensive, practical, and directly relevant to the candidate's experience and the job requirements.`;
+Generate all 20 questions NOW following this EXACT format. Make answers comprehensive, practical, and directly relevant to the candidate's experience and the job requirements.`;
 
     let questions = null;
     let usedProvider = null;

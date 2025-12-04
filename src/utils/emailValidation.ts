@@ -1,3 +1,5 @@
+import { getApiEndpoint } from '@/config/api';
+
 /**
  * Email validation utility for frontend
  * Validates email format and provides real-time feedback
@@ -36,10 +38,7 @@ export async function validateEmailComplete(email: string): Promise<EmailValidat
         }
 
         // Step 2: Call backend API for DNS and SMTP validation
-        // Use Netlify Functions path if VITE_API_URL is not set
-        const apiUrl = import.meta.env.VITE_API_URL
-            ? `${import.meta.env.VITE_API_URL}/api/validate-email`
-            : '/.netlify/functions/validate-email';
+        const apiUrl = getApiEndpoint('validate-email');
 
         const response = await fetch(apiUrl, {
             method: 'POST',

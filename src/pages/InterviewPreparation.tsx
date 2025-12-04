@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { API_BASE_URL } from '../config/api';
+import { getApiEndpoint } from '../config/api';
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -245,7 +245,7 @@ const InterviewPreparation = () => {
 
             toast.info(t("Generating interview questions..."));
 
-            const response = await fetch(`${API_BASE_URL}/generate-interview-questions`, {
+            const response = await fetch(getApiEndpoint('generate-interview-questions'), {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
