@@ -849,15 +849,15 @@ TOTAL: EXACTLY 20 questions
 - Core concepts on PRACTICAL IMPLEMENTATION
 - Related to PROJECTS in resume and job requirements
 - Test "WHY" and "HOW" things work in production
-- Each answer: EXACTLY 2-3 lines (2-3 sentences total)
+- Each answer: EXACTLY 5-6 lines (4-5 sentences total)
 - IMPORTANT: Use **bold** for ALL technical keywords, formulas, metrics, and important concepts
 - Example: "**React Hooks** like **useState** and **useEffect** manage component state and side effects. The **Virtual DOM** reconciliation algorithm uses **O(n)** complexity for efficient updates. **Memoization** with **useMemo** prevents unnecessary re-renders when dependencies don't change."
 
 **PART 2 (Questions 11-20): CODING - 50%**
-- Intermediate to advanced difficulty
+- Advanced difficulty
 - IDENTIFY TOP 3 SKILLS from Resume + Job Description
 - Distribute based on ROLE WEIGHTAGE (see table below)
-- Each answer: Brief explanation (2-3 sentences with **bold keywords**) + Complete Code (15-25 lines) + How it works (2-3 sentences with **bold keywords**) + Real-world context (2-3 sentences)
+- Each answer: Brief explanation (2-3 sentences with **bold keywords**) + Complete Code (15-25 lines) + How it works (4-5 sentences with **bold keywords**) + Real-world context (4-5 sentences)
 
 ========================================
 ROLE-SPECIFIC CODING DISTRIBUTION
@@ -934,13 +934,13 @@ FORMAT
 
 Question 1: [Conceptual question about project/implementation]
 Answer:
-[2-3 sentences with **bold** keywords for technical terms, formulas, and concepts. Keep it concise and focused.]
+[4-5 sentences with **bold** keywords for technical terms, formulas, concepts with real-world examples. Keep it concise and focused.]
 
 [Questions 2-10 follow same format]
 
 Question 11: [Coding question in primary skill]
 Answer:
-[2-3 sentences with **bold** keywords: problem, approach, complexity, why optimal]
+[4-5 sentences with **bold** keywords: problem, approach, complexity, why optimal]
 
 \`\`\`language
 # Complete executable code (15-25 lines)
@@ -948,9 +948,9 @@ Answer:
 # Production-ready with edge cases
 \`\`\`
 
-[2-3 sentences with **bold** keywords: how code works, key details]
+[4-5 sentences with **bold** keywords: how code works, key details]
 
-[2-3 sentences: real-world use, performance, alternatives]
+[4-5 sentences: real-world use, performance, alternatives]
 
 [Questions 12-20 follow same format, distributed by role weightage]
 
@@ -962,7 +962,7 @@ CHECKLIST
 ☐ Questions 11-20 coding (role weightage distribution)?
 ☐ Identified TOP 3 skills from resume + job description?
 ☐ Calculated question distribution (e.g., 60%=6, 20%=2)?
-☐ Each conceptual: 2-3 sentences with **bold** keywords?
+☐ Each conceptual: 4-5 sentences with **bold** keywords?
 ☐ Each coding: Complete code (15-25 lines) + 6-9 sentences with **bold** keywords?
 
 NOW GENERATE ALL 20 QUESTIONS.`;
