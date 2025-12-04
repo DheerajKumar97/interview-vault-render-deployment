@@ -105,22 +105,25 @@ export const handler = async (event, context) => {
 For each project, use EXACTLY this format:
 
 1. Project Title: [Full project name here]
-Project Description: [2-3 sentence description of what this project does and its purpose]
+Project Description: [EXACTLY 5 lines describing what this project does, its purpose, key features, technical implementation, and impact. Each line should be a complete sentence. Do not use fewer or more than 5 lines.]
 Key Technologies/Skills Used: [List of technologies]
-Why it's impressive for this role: [Explanation of relevance]
+Why it's impressive for this role: [EXACTLY 4 lines explaining the relevance to the role, how it demonstrates required skills, what makes it stand out, and its value to the employer. Each line should be a complete sentence. Do not use fewer or more than 4 lines.]
 
 2. Project Title: [Full project name here]
-Project Description: [2-3 sentence description of what this project does and its purpose]
+Project Description: [EXACTLY 5 lines describing what this project does, its purpose, key features, technical implementation, and impact. Each line should be a complete sentence. Do not use fewer or more than 5 lines.]
 Key Technologies/Skills Used: [List of technologies]
-Why it's impressive for this role: [Explanation of relevance]
+Why it's impressive for this role: [EXACTLY 4 lines explaining the relevance to the role, how it demonstrates required skills, what makes it stand out, and its value to the employer. Each line should be a complete sentence. Do not use fewer or more than 4 lines.]
 
-IMPORTANT: 
+CRITICAL REQUIREMENTS: 
 - Start each project with the number and "Project Title:" on one line
 - The FIRST line after the title MUST be "Project Description:"
+- Project Description MUST be EXACTLY 5 complete sentences (5 lines)
 - Then "Key Technologies/Skills Used:"
 - Then "Why it's impressive for this role:"
+- "Why it's impressive for this role" MUST be EXACTLY 4 complete sentences (4 lines)
 - Separate each project with a blank line
 - Do NOT use asterisks, markdown, or special formatting
+- COUNT the lines carefully - 5 for description, 4 for why impressive
 
 Job Description:
 ${jobDescription}`;
