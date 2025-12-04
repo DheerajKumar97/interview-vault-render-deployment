@@ -47,11 +47,7 @@ app.post('/api/send-signin-email', async (req, res) => {
 
     console.log('📧 Sending Sign In email to:', email);
 
-    const mailOptions = {
-      from: 'interviewvault2026@gmail.com',
-      to: email,
-      subject: '🔐 New Login to Interview Vault',
-      html: `
+    const htmlContent = `
         <!DOCTYPE html>
         <html>
         <head>
@@ -118,14 +114,41 @@ app.post('/api/send-signin-email', async (req, res) => {
             </div>
         </body>
         </html>
-      `
+      `;
+
+    // Send email using Brevo API
+    const emailData = {
+      sender: {
+        name: 'Interview Vault',
+        email: process.env.SMTP_USER || 'interviewvault.2026@gmail.com'
+      },
+      to: [
+        {
+          email: email,
+          name: fullName || 'User'
+        }
+      ],
+      subject: '🔐 New Login to Interview Vault',
+      htmlContent: htmlContent
     };
 
-    const info = await transporter.sendMail(mailOptions);
-    console.log('✅ Sign In email sent:', info.messageId);
+    const response = await axios.post(
+      'https://api.brevo.com/v3/smtp/email',
+      emailData,
+      {
+        headers: {
+          'accept': 'application/json',
+          'api-key': process.env.BREVO_API_KEY,
+          'content-type': 'application/json'
+        },
+        timeout: 15000
+      }
+    );
+
+    console.log('✅ Sign In email sent via Brevo:', response.data.messageId);
     res.status(200).json({
       success: true,
-      messageId: info.messageId,
+      messageId: response.data.messageId,
       message: 'Sign in email sent successfully'
     });
   } catch (error) {
