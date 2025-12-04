@@ -171,11 +171,7 @@ app.post('/api/send-signup-email', async (req, res) => {
 
     console.log('📧 Sending Sign Up email to:', email);
 
-    const mailOptions = {
-      from: 'interviewvault2026@gmail.com',
-      to: email,
-      subject: '🎉 Welcome to Interview Vault!',
-      html: `
+    const htmlContent = `
         <!DOCTYPE html>
         <html>
         <head>
@@ -253,14 +249,41 @@ app.post('/api/send-signup-email', async (req, res) => {
             </div>
         </body>
         </html>
-      `
+      `;
+
+    // Send email using Brevo API
+    const emailData = {
+      sender: {
+        name: 'Interview Vault',
+        email: process.env.SMTP_USER || 'interviewvault.2026@gmail.com'
+      },
+      to: [
+        {
+          email: email,
+          name: fullName || 'Future Achiever'
+        }
+      ],
+      subject: '🎉 Welcome to Interview Vault!',
+      htmlContent: htmlContent
     };
 
-    const info = await transporter.sendMail(mailOptions);
-    console.log('✅ Sign Up email sent:', info.messageId);
+    const response = await axios.post(
+      'https://api.brevo.com/v3/smtp/email',
+      emailData,
+      {
+        headers: {
+          'accept': 'application/json',
+          'api-key': process.env.BREVO_API_KEY,
+          'content-type': 'application/json'
+        },
+        timeout: 15000
+      }
+    );
+
+    console.log('✅ Sign Up email sent via Brevo:', response.data.messageId);
     res.status(200).json({
       success: true,
-      messageId: info.messageId,
+      messageId: response.data.messageId,
       message: 'Welcome email sent successfully'
     });
   } catch (error) {
@@ -540,11 +563,39 @@ app.post('/api/send-digest-email', async (req, res) => {
       `
     };
 
-    const info = await transporter.sendMail(mailOptions);
-    console.log('✅ Email Digest sent:', info.messageId);
+    // Send email using Brevo API
+    const emailData = {
+      sender: {
+        name: 'Interview Vault',
+        email: process.env.SMTP_USER || 'interviewvault2026@gmail.com'
+      },
+      to: [
+        {
+          email: email,
+          name: 'User'
+        }
+      ],
+      subject: `📊 Your ${frequencyLabels[frequency] || 'Scheduled'} Interview Vault Digest`,
+      htmlContent: mailOptions.html
+    };
+
+    const response = await axios.post(
+      'https://api.brevo.com/v3/smtp/email',
+      emailData,
+      {
+        headers: {
+          'accept': 'application/json',
+          'api-key': process.env.BREVO_API_KEY,
+          'content-type': 'application/json'
+        },
+        timeout: 15000
+      }
+    );
+
+    console.log('✅ Email Digest sent via Brevo:', response.data.messageId);
     res.status(200).json({
       success: true,
-      messageId: info.messageId,
+      messageId: response.data.messageId,
       message: 'Email digest sent successfully'
     });
   } catch (error) {
