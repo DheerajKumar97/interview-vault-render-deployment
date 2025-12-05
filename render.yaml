@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: interview-compass
+    name: interview-vault-render-deployment
     env: node
     buildCommand: npm ci && node create-env.js && npm run build
     startCommand: npm start
