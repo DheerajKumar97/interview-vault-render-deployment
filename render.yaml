@@ -39,7 +39,7 @@ services:
   - type: cron
     name: email-digest-cron
     env: node
-    schedule: "*/5 * * * *"  # Runs every 5 minutes
+    schedule: "*/15 * * * *"  # Runs every 15 minutes (saves free tier hours)
     buildCommand: npm ci
     startCommand: node send-digest-cron.js
     envVars:
