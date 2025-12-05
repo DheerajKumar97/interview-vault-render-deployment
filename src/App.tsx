@@ -30,6 +30,7 @@ import AboutUs from "./pages/legal/AboutUs";
 import UserAgreement from "./pages/legal/UserAgreement";
 import PrivacyPolicy from "./pages/legal/PrivacyPolicy";
 import CookiePolicy from "./pages/legal/CookiePolicy";
+import ChatBot from "./components/ChatBot";
 
 const queryClient = new QueryClient();
 
@@ -118,6 +119,7 @@ const App = () => (
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />
             </Routes>
+            <ChatBot />
             <Footer />
           </AuthProvider>
         </LanguageProvider>

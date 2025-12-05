@@ -1838,6 +1838,282 @@ app.post('/api/update-env', async (req, res) => {
 });
 
 // ============================================
+// CHATBOT API ENDPOINT - LLM-POWERED
+// ============================================
+app.post('/api/chat', async (req, res) => {
+  try {
+    const { message, conversationHistory, user } = req.body;
+
+    if (!message) {
+      return res.status(400).json({ error: 'Message is required' });
+    }
+
+    console.log('💬 Chat request:', message);
+    console.log('👤 User:', user?.isAuthenticated ? (user.name || user.email) : 'Not authenticated');
+
+    const userName = user?.isAuthenticated ? (user.name || 'there') : null;
+
+    const APPLICATION_KNOWLEDGE = `
+INTERVIEW VAULT - APPLICATION KNOWLEDGE BASE
+
+## About Interview Vault
+Interview Vault is a comprehensive interview tracking and management platform designed to help job seekers organize their application journey, analyze their skills against job requirements, and make data-driven decisions to land their dream job.
+
+## Key Features:
+- 📊 Data-Driven Insights: Visualize your interview pipeline with interactive charts
+- 🤖 AI-Powered Analysis: Get skill gap analysis and project suggestions using Gemini AI
+- 📧 Smart Notifications: Automated email digests and alerts
+- 📱 Responsive Design: Works seamlessly on desktop, tablet, and mobile
+- 🔒 Secure & Private: Your data is protected with enterprise-grade security
+- 🌍 Multi-Language: Support for English and Hindi
+
+## About Dheeraj Kumar K
+Dheeraj Kumar K is the creator and developer of Interview Vault. He is an AI enabled Data Engineer passionate about building tools that help job seekers succeed in their career journey. You can learn more about Dheeraj at: https://dheerajkumar-k.netlify.app/
+
+## Contact & Support:
+- Email: interviewvault.2026@gmail.com
+- Support Hours: Monday-Friday, 9:00 AM - 5:00 PM EST
+- Website: https://dheerajkumark-interview-vault.netlify.app/
+
+## Privacy & Security Policies:
+- All user data is encrypted and stored securely
+- Row Level Security (RLS) ensures users can only access their own data
+- GDPR and CCPA compliant
+- No personal data is shared with third parties
+- Users can export or delete their data anytime
+
+## Terms of Use:
+- Interview Vault is free to use for personal job search tracking
+- Users must provide accurate information during registration
+- Users are responsible for maintaining the confidentiality of their account
+`;
+
+    // Get user's application data if authenticated
+    let userDataContext = '';
+    let applicationStats = null;
+    if (user?.isAuthenticated && user.id) {
+      try {
+        const { data: applications, error } = await supabaseAdmin
+          .from('applications')
+          .select('*')
+          .eq('user_id', user.id);
+
+        if (!error && applications) {
+          const totalApps = applications.length;
+          // Case-insensitive status matching to handle 'APPLIED', 'Applied', etc.
+          const getStatusCount = (status) => applications.filter(app =>
+            app.current_status && app.current_status.toLowerCase() === status.toLowerCase()
+          ).length;
+          const selected = getStatusCount('Selected');
+          const offers = getStatusCount('Offer Released');
+          const interviews = getStatusCount('Interview Scheduled');
+          const rejected = getStatusCount('Rejected');
+          const applied = getStatusCount('Applied');
+          const shortlisted = getStatusCount('Shortlisted');
+
+          applicationStats = { totalApps, selected, offers, interviews, rejected, applied, shortlisted, applications };
+
+          // Group companies by status for detailed breakdown
+          const getCompaniesByStatus = (status) => applications
+            .filter(app => app.current_status && app.current_status.toLowerCase() === status.toLowerCase())
+            .map(app => app.company || app.name || 'Unknown Company');
+
+          const appliedCompanies = getCompaniesByStatus('Applied');
+          const shortlistedCompanies = getCompaniesByStatus('Shortlisted');
+          const interviewCompanies = getCompaniesByStatus('Interview Scheduled');
+          const selectedCompanies = getCompaniesByStatus('Selected');
+          const offerCompanies = getCompaniesByStatus('Offer Released');
+          const rejectedCompanies = getCompaniesByStatus('Rejected');
+          const hrScreeningCompanies = getCompaniesByStatus('HR Screening Done');
+
+          userDataContext = `
+## USER'S CURRENT APPLICATION DATA (Real-time from database):
+- **Total Applications:** ${totalApps}
+
+### Breakdown by Status with Company Names:
+
+**Applied (${applied}):** ${appliedCompanies.length > 0 ? appliedCompanies.join(', ') : 'None'}
+
+**Shortlisted (${shortlisted}):** ${shortlistedCompanies.length > 0 ? shortlistedCompanies.join(', ') : 'None'}
+
+**HR Screening Done (${hrScreeningCompanies.length}):** ${hrScreeningCompanies.length > 0 ? hrScreeningCompanies.join(', ') : 'None'}
+
+**Interview Scheduled (${interviews}):** ${interviewCompanies.length > 0 ? interviewCompanies.join(', ') : 'None'}
+
+**Selected (${selected}):** ${selectedCompanies.length > 0 ? selectedCompanies.join(', ') : 'None'}
+
+**Offer Released (${offers}):** ${offerCompanies.length > 0 ? offerCompanies.join(', ') : 'None'}
+
+**Rejected (${rejected}):** ${rejectedCompanies.length > 0 ? rejectedCompanies.join(', ') : 'None'}
+`;
+        }
+      } catch (dbError) {
+        console.error('Database query error:', dbError);
+      }
+    }
+
+    // Build conversation context for LLM
+    const conversationContext = (conversationHistory || [])
+      .slice(-10) // Last 10 messages for context
+      .map(msg => `${msg.role === 'user' ? 'User' : 'Assistant'}: ${msg.content}`)
+      .join('\n');
+
+    // Parse Perplexity API keys
+    let apiKeys = [];
+    if (process.env.PERPLEXITY_API_KEY) {
+      try {
+        const parsed = JSON.parse(process.env.PERPLEXITY_API_KEY);
+        apiKeys = Array.isArray(parsed) ? parsed : [process.env.PERPLEXITY_API_KEY];
+      } catch (e) {
+        apiKeys = [process.env.PERPLEXITY_API_KEY];
+      }
+    }
+
+    // Determine greeting style based on message count
+    const messageCount = user?.messageCount || 0;
+    const greetingPrefix = messageCount === 0 ? 'Hi' : 'Sure';
+
+    // LLM-powered response generation
+    const systemPrompt = `You are a helpful AI assistant for Interview Vault, a job application tracking platform.
+${userName ? `The user's name is ${userName}.` : 'The user is not logged in.'}
+
+⚠️ CRITICAL - READ THIS FIRST ⚠️
+
+GREETING RULE:
+${userName ? `This is the user's message #${messageCount + 1}. ${messageCount === 0 ? `Start your response with "Hi **${userName}**!"` : `Start your response with "Sure **${userName}**!" or "Absolutely **${userName}**!"`}` : 'User is not logged in.'}
+
+When user sends SHORT messages (1-3 words) like: "Excellent", "Great", "Awesome", "Thanks", "Thank you", "Perfect", "Nice", "Good job", "Amazing", "Awesome Dude", "Cool", "That's helpful", "Wonderful", "Love it", "You're great", "Super", "Brilliant" - these are PRAISE/APPRECIATION for your previous response!
+
+DO NOT:
+- Define these words
+- Search for meaning
+- Explain what they mean
+- Give dictionary definitions
+- Search for "Awesome Dude" as a person/character
+
+INSTEAD respond briefly like:
+"Thanks **${userName || 'there'}**! 😊 Happy to help! Let me know if you need anything else."
+
+${APPLICATION_KNOWLEDGE}
+
+${userDataContext}
+
+ADDITIONAL RULES:
+1. ${userName ? `ALWAYS address the user personally with "Hi **${userName}**!" - username in BOLD.` : 'User is not logged in.'}
+2. Use markdown bold **text** for names, numbers, KPIs, status values, and important info.
+3. For application data questions, use ONLY the REAL DATA provided above.
+4. Understand follow-up questions from context.
+5. Keep responses concise and friendly.
+6. For app info, features, policies - use the knowledge base above.
+7. Do NOT do web searches for greetings, praise, or simple conversational messages.
+
+CONVERSATION HISTORY:
+${conversationContext || 'No previous messages.'}
+
+Respond naturally and helpfully.`;
+
+    let response = null;
+    let lastError = null;
+
+    // Try each API key
+    for (let i = 0; i < apiKeys.length; i++) {
+      const currentKey = apiKeys[i].trim();
+      try {
+        const aiResponse = await axios.post(
+          'https://api.perplexity.ai/chat/completions',
+          {
+            model: 'sonar',
+            messages: [
+              { role: 'system', content: systemPrompt },
+              { role: 'user', content: message }
+            ],
+            temperature: 0.7,
+            max_tokens: 1000
+          },
+          {
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${currentKey}`
+            },
+            timeout: 30000
+          }
+        );
+
+        response = aiResponse.data.choices?.[0]?.message?.content;
+        if (response) {
+          console.log('✅ LLM response generated successfully');
+          break;
+        }
+      } catch (error) {
+        lastError = error;
+        console.log(`❌ API key ${i + 1}/${apiKeys.length} failed:`, error.message);
+      }
+    }
+
+    // Fallback if LLM fails
+    if (!response) {
+      console.log('⚠️ LLM unavailable, using fallback response');
+      const greeting = userName ? `Hi ${userName}!` : 'Hello!';
+
+      // Simple fallback based on keywords
+      const lowerMsg = message.toLowerCase();
+      if (lowerMsg.includes('how many') || lowerMsg.includes('applied') || lowerMsg.includes('job')) {
+        if (applicationStats) {
+          response = `${greeting} You have applied to ${applicationStats.totalApps} jobs in total! Check your Dashboard for detailed analytics. 📊`;
+        } else {
+          response = `${greeting} Please log in to see your application statistics. 🔐`;
+        }
+      } else if (lowerMsg.includes('selected')) {
+        if (applicationStats) {
+          response = `${greeting} You got selected in ${applicationStats.selected} companies! 🎉`;
+        } else {
+          response = `${greeting} Please log in to see your selection status. 🔐`;
+        }
+      } else if (lowerMsg.includes('offer')) {
+        if (applicationStats) {
+          response = `${greeting} You have ${applicationStats.offers} offer(s)! 💼`;
+        } else {
+          response = `${greeting} Please log in to see your offers. 🔐`;
+        }
+      } else if (lowerMsg.includes('dheeraj') || lowerMsg.includes('creator') || lowerMsg.includes('founder')) {
+        response = `${greeting} Dheeraj Kumar K is the creator of Interview Vault. He's an AI-enabled Data Engineer. Learn more: https://dheerajkumar-k.netlify.app/`;
+      } else if (lowerMsg.includes('feature')) {
+        response = `${greeting} Interview Vault offers: Data-Driven Insights 📊, AI-Powered Analysis 🤖, Smart Notifications 📧, Multi-Language Support 🌍, and more!`;
+      } else {
+        response = `${greeting} I'm here to help with Interview Vault! Ask me about your applications, features, policies, or anything else. 😊`;
+      }
+    }
+
+    res.status(200).json({
+      success: true,
+      response: response,
+      queryType: 'llm_powered'
+    });
+
+  } catch (error) {
+    console.error('❌ Error in chat endpoint:', error);
+    res.status(500).json({
+      error: 'Failed to process chat message',
+      message: error.message
+    });
+  }
+});
+
+// Legacy classifyQuery function removed - now using LLM for intent understanding
+
+// Legacy generateResponse function removed - now using LLM for response generation
+
+// ============================================
+// CHATBOT ENDPOINT END
+// ============================================
+
+// Placeholder to maintain code structure
+const _chatbotLegacyRemoved = true;
+
+
+
+
+// ============================================
 // PRODUCTION: Serve React Build
 // ============================================
 if (process.env.NODE_ENV === 'production') {
