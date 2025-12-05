@@ -1857,35 +1857,62 @@ app.post('/api/chat', async (req, res) => {
 INTERVIEW VAULT - APPLICATION KNOWLEDGE BASE
 
 ## About Interview Vault
-Interview Vault is a comprehensive interview tracking and management platform designed to help job seekers organize their application journey, analyze their skills against job requirements, and make data-driven decisions to land their dream job.
+**Interview Vault** is your AI-powered companion for the job search journey. It's a comprehensive platform that combines intelligent tracking, AI analysis, and smart automation to help you land your dream job.
 
-## Key Features:
-- 📊 Data-Driven Insights: Visualize your interview pipeline with interactive charts
-- 🤖 AI-Powered Analysis: Get skill gap analysis and project suggestions using Gemini AI
-- 📧 Smart Notifications: Automated email digests and alerts
-- 📱 Responsive Design: Works seamlessly on desktop, tablet, and mobile
-- 🔒 Secure & Private: Your data is protected with enterprise-grade security
-- 🌍 Multi-Language: Support for English and Hindi
+## 🚀 Core Features:
 
-## About Dheeraj Kumar K
-Dheeraj Kumar K is the creator and developer of Interview Vault. He is an AI enabled Data Engineer passionate about building tools that help job seekers succeed in their career journey. You can learn more about Dheeraj at: https://dheerajkumar-k.netlify.app/
+### **1. Interview Tracker with Intelligence**
+Track all your job applications in one place with smart status management. Monitor applications from **Applied** → **Shortlisted** → **Interview Scheduled** → **Selected** → **Offer Released**. Get real-time statistics, interactive dashboards, and visual analytics to understand your job search performance at a glance.
 
-## Contact & Support:
-- Email: interviewvault.2026@gmail.com
-- Support Hours: Monday-Friday, 9:00 AM - 5:00 PM EST
-- Website: https://dheerajkumark-interview-vault.netlify.app/
+### **2. AI-Powered Resume Skill Match Analysis**
+Upload your resume and job description to get instant AI analysis using **Gemini AI**. Discover:
+- **Matching Skills**: Skills you already have that match the job
+- **Missing Skills**: Skills you need to develop
+- **ATS Score**: How well your resume matches the job requirements
+- **Personalized Recommendations**: Actionable tips to improve your resume
 
-## Privacy & Security Policies:
-- All user data is encrypted and stored securely
-- Row Level Security (RLS) ensures users can only access their own data
+### **3. AI-Powered Project Ideas Generation**
+Get **custom project suggestions** based on your skill gaps. The AI analyzes what skills you're missing and recommends hands-on projects to build them. Each project comes with:
+- Project description and scope
+- Technologies to use
+- Learning outcomes
+- Why it's impressive for your target role
+
+### **4. AI-Powered Interview Preparation**
+Generate **20 tailored interview questions** (conceptual + coding) based on the job description. Each question includes:
+- Detailed answers and explanations
+- Code examples where applicable
+- Tips on how to answer effectively
+- Common follow-up questions
+
+### **5. Smart Email Notifications**
+Never miss an important update with:
+- **Daily/Weekly Digest Emails**: Summary of your application status
+- **Automated Alerts**: Reminders for scheduled interviews
+- **Progress Reports**: Track your job search journey over time
+
+### **6. Multi-Company Database**
+Access a database of **350+ companies** with pre-filled information. Quick-add applications without entering company details manually.
+
+## 👨‍💻 About the Creator:
+**Dheeraj Kumar K** is the founder and developer of Interview Vault. He's an AI-enabled Data Engineer passionate about empowering job seekers with intelligent tools. Learn more: https://dheerajkumar-k.netlify.app/
+
+## 📧 Contact & Support:
+- **Email**: interviewvault.2026@gmail.com
+- **Website**: https://dheerajkumark-interview-vault.netlify.app/
+- **Support Hours**: Monday-Friday, 9 AM - 5 PM EST
+
+## 🔒 Privacy & Security:
+- Enterprise-grade encryption
+- Row Level Security (RLS) - only you can access your data
 - GDPR and CCPA compliant
-- No personal data is shared with third parties
-- Users can export or delete their data anytime
+- No data shared with third parties
+- Export or delete your data anytime
 
-## Terms of Use:
-- Interview Vault is free to use for personal job search tracking
-- Users must provide accurate information during registration
-- Users are responsible for maintaining the confidentiality of their account
+## 📋 Terms of Use:
+- **Free** for personal job search tracking
+- Accurate information required during registration
+- Users responsible for account confidentiality
 `;
 
     // Get user's application data if authenticated
@@ -1893,9 +1920,19 @@ Dheeraj Kumar K is the creator and developer of Interview Vault. He is an AI ena
     let applicationStats = null;
     if (user?.isAuthenticated && user.id) {
       try {
+        // Query applications with companies join to get all HR details
         const { data: applications, error } = await supabaseAdmin
           .from('applications')
-          .select('*')
+          .select(`
+            *,
+            companies (
+              name,
+              company_size,
+              industry,
+              location,
+              company_website
+            )
+          `)
           .eq('user_id', user.id);
 
         if (!error && applications) {
@@ -1916,7 +1953,7 @@ Dheeraj Kumar K is the creator and developer of Interview Vault. He is an AI ena
           // Group companies by status for detailed breakdown
           const getCompaniesByStatus = (status) => applications
             .filter(app => app.current_status && app.current_status.toLowerCase() === status.toLowerCase())
-            .map(app => app.company || app.name || 'Unknown Company');
+            .map(app => app.name || app.companies?.name || 'Unknown Company');
 
           const appliedCompanies = getCompaniesByStatus('Applied');
           const shortlistedCompanies = getCompaniesByStatus('Shortlisted');
@@ -1925,6 +1962,41 @@ Dheeraj Kumar K is the creator and developer of Interview Vault. He is an AI ena
           const offerCompanies = getCompaniesByStatus('Offer Released');
           const rejectedCompanies = getCompaniesByStatus('Rejected');
           const hrScreeningCompanies = getCompaniesByStatus('HR Screening Done');
+
+          // Create comprehensive company details list with all available info (fallback to companies table)
+          const companyDetailsList = applications.map(app => {
+            const details = [];
+            const companyName = app.name || app.companies?.name || 'Unknown Company';
+            const hrName = app.hr_name;
+            const hrPhone = app.hr_phone;
+            const hrEmail = app.hr_email;
+            const companySize = app.company_size || app.companies?.company_size;
+            const industry = app.industry || app.companies?.industry;
+            const location = app.location || app.companies?.location;
+            const website = app.company_website || app.companies?.company_website;
+
+            details.push(`**${companyName}**`);
+            if (app.position) details.push(`Position: ${app.position}`);
+            if (hrName) details.push(`HR Name: ${hrName}`);
+            if (hrPhone) details.push(`HR Phone: ${hrPhone}`);
+            if (hrEmail) details.push(`HR Email: ${hrEmail}`);
+            if (companySize) details.push(`Company Size: ${companySize}`);
+            if (industry) details.push(`Industry: ${industry}`);
+            if (location) details.push(`Location: ${location}`);
+            if (website) details.push(`Website: ${website}`);
+            if (app.salary) details.push(`Salary: ${app.salary}`);
+            if (app.date_applied || app.created_at) details.push(`Applied: ${app.date_applied || app.created_at?.split('T')[0]}`);
+            details.push(`Status: **${app.current_status || 'Unknown'}**`);
+            if (app.job_description) details.push(`Job Description: ${app.job_description.substring(0, 200)}...`);
+            return details.join(' | ');
+          }).join('\n\n');
+
+          // Create simple detailed list for quick reference
+          const detailedApps = applications.map(app => {
+            const hrName = app.hr_name;
+            const hrPhone = app.hr_phone;
+            return `- **${app.name || app.companies?.name || 'Unknown'}**: ${app.position || 'N/A'} | Applied: ${app.date_applied || app.created_at?.split('T')[0] || 'N/A'} | Status: **${app.current_status || 'Unknown'}**${hrName ? ' | HR: ' + hrName : ''}${hrPhone ? ' (' + hrPhone + ')' : ''}`;
+          }).join('\n');
 
           userDataContext = `
 ## USER'S CURRENT APPLICATION DATA (Real-time from database):
@@ -1945,7 +2017,23 @@ Dheeraj Kumar K is the creator and developer of Interview Vault. He is an AI ena
 **Offer Released (${offers}):** ${offerCompanies.length > 0 ? offerCompanies.join(', ') : 'None'}
 
 **Rejected (${rejected}):** ${rejectedCompanies.length > 0 ? rejectedCompanies.join(', ') : 'None'}
+
+### Application Quick List:
+${detailedApps}
+
+### Complete Company Details (for company-specific queries - includes HR, size, job description):
+${companyDetailsList}
 `;
+          // Debug log to see what data is being sent to LLM
+          console.log('\n📝 USER DATA CONTEXT FOR LLM:');
+          console.log('Total apps:', totalApps);
+          console.log('Sample app HR data:', applications.slice(0, 3).map(a => ({
+            name: a.name,
+            hr_name: a.hr_name,
+            hr_phone: a.hr_phone,
+            position: a.position,
+            status: a.current_status
+          })));
         }
       } catch (dbError) {
         console.error('Database query error:', dbError);
@@ -1974,14 +2062,17 @@ Dheeraj Kumar K is the creator and developer of Interview Vault. He is an AI ena
     const greetingPrefix = messageCount === 0 ? 'Hi' : 'Sure';
 
     // LLM-powered response generation
-    const systemPrompt = `You are a helpful AI assistant for Interview Vault, a job application tracking platform.
+    const systemPrompt = `You are the AI assistant for **Interview Vault** - a job application tracking platform. You are embedded IN this application.
 ${userName ? `The user's name is ${userName}.` : 'The user is not logged in.'}
 
 ⚠️ CRITICAL - READ THIS FIRST ⚠️
 
+CONTEXT: You are the chatbot FOR Interview Vault. When the user says "this website", "this product", "this app", "the app", "Interview Vault" or asks about features/policies - they are asking about INTERVIEW VAULT. Use the knowledge base below. DO NOT do web searches for Interview Vault questions.
+
 GREETING RULE:
 ${userName ? `This is the user's message #${messageCount + 1}. ${messageCount === 0 ? `Start your response with "Hi **${userName}**!"` : `Start your response with "Sure **${userName}**!" or "Absolutely **${userName}**!"`}` : 'User is not logged in.'}
 
+PRAISE RECOGNITION:
 When user sends SHORT messages (1-3 words) like: "Excellent", "Great", "Awesome", "Thanks", "Thank you", "Perfect", "Nice", "Good job", "Amazing", "Awesome Dude", "Cool", "That's helpful", "Wonderful", "Love it", "You're great", "Super", "Brilliant" - these are PRAISE/APPRECIATION for your previous response!
 
 DO NOT:
@@ -1990,8 +2081,9 @@ DO NOT:
 - Explain what they mean
 - Give dictionary definitions
 - Search for "Awesome Dude" as a person/character
+- Do web searches when user asks about Interview Vault or this app
 
-INSTEAD respond briefly like:
+INSTEAD for praise, respond briefly like:
 "Thanks **${userName || 'there'}**! 😊 Happy to help! Let me know if you need anything else."
 
 ${APPLICATION_KNOWLEDGE}
@@ -1999,13 +2091,32 @@ ${APPLICATION_KNOWLEDGE}
 ${userDataContext}
 
 ADDITIONAL RULES:
-1. ${userName ? `ALWAYS address the user personally with "Hi **${userName}**!" - username in BOLD.` : 'User is not logged in.'}
+1. ${userName ? `ALWAYS address the user personally with "Hi **${userName}**!" (first msg) or "Sure **${userName}**!" (later msgs) - username in BOLD.` : `User is NOT logged in. After answering their question, ALWAYS encourage them to sign up: "🚀 **Ready to supercharge your job search?** Sign up now to unlock AI-Powered Intelligence, track your applications, get resume analysis, and receive personalized interview preparation!"`}
 2. Use markdown bold **text** for names, numbers, KPIs, status values, and important info.
-3. For application data questions, use ONLY the REAL DATA provided above.
-4. Understand follow-up questions from context.
-5. Keep responses concise and friendly.
-6. For app info, features, policies - use the knowledge base above.
-7. Do NOT do web searches for greetings, praise, or simple conversational messages.
+3. **APPLICATION DATA QUESTIONS** - When user asks about: "breakdown", "companies", "applications", "jobs", "how many", "which companies", "my applications", "applied", "selected", "offers", "interviews", "status" - USE THE USER'S APPLICATION DATA ABOVE. Do NOT do web searches for these! The user is asking about THEIR OWN job applications.
+4. For questions about "this website", "this app", "Interview Vault", "features", "policies", "creator", "founder" - USE THE KNOWLEDGE BASE ABOVE, not web search.
+5. **COMPANY-SPECIFIC QUERIES**: When user asks about a company's HR details, contact info, or company details:
+   - FIRST check if that company is in the user's application data above (look in "Complete Company Details" section)
+   - If found, ALWAYS display user's stored data at the TOP in this format:
+     
+     **📋 Your Application Record for [Company]:**
+     - Applied on: **[date]**
+     - Position: **[position]** (if available)
+     - Status: **[status]**
+     - **HR Contact Name:** [name] (show if available)
+     - **HR Contact Phone:** [phone] (show if available)
+     - **HR Contact Email:** [email] (show if available)
+   
+   - THEN provide additional company/HR info from web search below
+   - User's stored HR contact details MUST be shown FIRST and PROMINENTLY before web results
+6. Understand follow-up questions from context - if previous message was about applications, "breakdown" refers to their applications.
+7. Keep responses well-formatted with subheaders using **bold** for feature names.
+8. When explaining features, list them with clear explanations - make it impressive!
+9. **FORMATTING RULES - CRITICAL**:
+   - Do NOT use horizontal rule separators (---, ___, ===, or similar) ANYWHERE in your response
+   - Use SINGLE blank line between sections (one \n\n only, not multiple blank lines)
+   - Separate content with bold section headers instead of visual separators
+   - Keep responses compact and easy to read
 
 CONVERSATION HISTORY:
 ${conversationContext || 'No previous messages.'}

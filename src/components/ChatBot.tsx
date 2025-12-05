@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { MessageCircle, X, Send, Loader2, Maximize2, Minimize2 } from 'lucide-react';
+import { MessageCircle, X, Send, Loader2, Maximize2, Minimize2, Trash2 } from 'lucide-react';
 import { Button } from './ui/button';
 import { Card } from './ui/card';
 import { Input } from './ui/input';
@@ -25,27 +25,122 @@ export default function ChatBot() {
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const inputRef = useRef<HTMLInputElement>(null);
 
-    // Fetch user on mount and set personalized greeting
-    useEffect(() => {
-        const initializeChat = async () => {
+    // LocalStorage helper functions
+    const getChatStorageKey = (userId: string | null) => `interview_vault_chat_${userId || 'guest'}`;
+
+    const saveChatToStorage = (userId: string | null, msgs: Message[]) => {
+        try {
+            const key = getChatStorageKey(userId);
+            localStorage.setItem(key, JSON.stringify(msgs));
+        } catch (error) {
+            console.error('Error saving chat to localStorage:', error);
+        }
+    };
+
+    const loadChatFromStorage = (userId: string | null): Message[] | null => {
+        try {
+            const key = getChatStorageKey(userId);
+            const stored = localStorage.getItem(key);
+            if (stored) {
+                const parsed = JSON.parse(stored);
+                // Convert timestamp strings back to Date objects
+                return parsed.map((msg: any) => ({
+                    ...msg,
+                    timestamp: new Date(msg.timestamp)
+                }));
+            }
+        } catch (error) {
+            console.error('Error loading chat from localStorage:', error);
+        }
+        return null;
+    };
+
+    const clearChatStorage = (userId: string | null) => {
+        try {
+            const key = getChatStorageKey(userId);
+            localStorage.removeItem(key);
+        } catch (error) {
+            console.error('Error clearing chat from localStorage:', error);
+        }
+    };
+
+    // Clear chat history handler
+    const handleClearHistory = async () => {
+        if (window.confirm('Are you sure you want to clear the chat history? This cannot be undone.')) {
             const { data: { user } } = await supabase.auth.getUser();
-            const name = user?.user_metadata?.full_name || user?.email?.split('@')[0] || null;
-            setUserName(name);
+            const userId = user?.id || null;
 
-            // Set personalized initial message
-            const greeting = name
-                ? `Hello, ${name}! 👋 I'm the Interview Vault AI assistant. I can help you with questions about your applications, job statistics, features, policies, or anything else. How can I assist you today?`
-                : `Hello! 👋 I'm the Interview Vault AI assistant. I can help you with questions about the app, features, policies, or general inquiries. Please log in to access your personalized job application data. How can I assist you today?`;
+            // Clear from localStorage
+            clearChatStorage(userId);
 
-            setMessages([{
-                id: '1',
-                text: greeting,
-                sender: 'bot',
-                timestamp: new Date(),
-            }]);
+            // Reset chat with new greeting
+            await initializeChat(user, true);
+        }
+    };
+
+    // Helper function to initialize/reset chat with appropriate greeting
+    const initializeChat = async (user: any, forceReset: boolean = false) => {
+        const name = user?.user_metadata?.full_name || user?.email?.split('@')[0] || null;
+        const userId = user?.id || null;
+        setUserName(name);
+
+        // Try to load existing chat history from localStorage (unless forced reset)
+        if (!forceReset) {
+            const savedMessages = loadChatFromStorage(userId);
+            if (savedMessages && savedMessages.length > 0) {
+                setMessages(savedMessages);
+                // Count user messages for greeting prefix logic
+                const userMsgCount = savedMessages.filter(m => m.sender === 'user').length;
+                setUserMessageCount(userMsgCount);
+                return;
+            }
+        }
+
+        // No saved messages or force reset - create welcome greeting
+        setUserMessageCount(0);
+
+        const greeting = name
+            ? `Hello, **${name}**! 👋 I'm the Interview Vault AI assistant. I can help you with questions about your applications, job statistics, features, policies, or anything else. How can I assist you today?`
+            : `Hello! 👋 I'm the Interview Vault AI assistant. I can help you with questions about the app, features, policies, or general inquiries. Please log in to access your personalized job application data. How can I assist you today?`;
+
+        const initialMessages: Message[] = [{
+            id: '1',
+            text: greeting,
+            sender: 'bot',
+            timestamp: new Date(),
+        }];
+
+        setMessages(initialMessages);
+        saveChatToStorage(userId, initialMessages);
+    };
+
+    // Initialize chat on mount and listen for auth changes
+    useEffect(() => {
+        // Initial load
+        const loadUser = async () => {
+            const { data: { user } } = await supabase.auth.getUser();
+            await initializeChat(user);
         };
+        loadUser();
 
-        initializeChat();
+        // Listen for auth state changes (login/logout)
+        const { data: { subscription } } = supabase.auth.onAuthStateChange(
+            async (event, session) => {
+                if (event === 'SIGNED_IN') {
+                    // Load chat history for the newly signed-in user
+                    await initializeChat(session?.user);
+                } else if (event === 'SIGNED_OUT') {
+                    // Clear guest chat and show generic greeting
+                    clearChatStorage(null);
+                    await initializeChat(null, true);
+                }
+            }
+        );
+
+        // Cleanup subscription on unmount
+        return () => {
+            subscription.unsubscribe();
+        };
     }, []);
 
     const scrollToBottom = () => {
@@ -63,11 +158,28 @@ export default function ChatBot() {
     }, [isOpen]);
 
     const formatMessage = (text: string) => {
+        // Remove horizontal separators (---, ___, ===, etc.)
+        let formatted = text.replace(/^[-_=]{3,}$/gm, '');
+
+        // Remove multiple consecutive blank lines (keep only single blank line)
+        formatted = formatted.replace(/\n{3,}/g, '\n\n');
+
+        // Convert markdown headers (### and ##) to bold text
+        formatted = formatted.replace(/^###\s*(.+)$/gm, '<strong>$1</strong>');
+        formatted = formatted.replace(/^##\s*(.+)$/gm, '<strong>$1</strong>');
+
         // Convert markdown-style bold (**text**) to HTML
-        let formatted = text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+        formatted = formatted.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+
+        // Make common labels bold (Email:, Phone:, Address:, etc.)
+        formatted = formatted.replace(/^- ((?:Support Email|Alternate Email|Email|Phone|Fax|Address|Website|Contact Person|HR Contact Name|HR Contact Phone|HR Contact Email|Position|Status|Applied on):)/gm, '- <strong>$1</strong>');
+
 
         // Convert newlines to <br>
         formatted = formatted.replace(/\n/g, '<br>');
+
+        // Remove excessive <br> tags (more than 2 consecutive)
+        formatted = formatted.replace(/(<br>){3,}/g, '<br><br>');
 
         // Convert URLs to links
         formatted = formatted.replace(
@@ -125,7 +237,12 @@ export default function ChatBot() {
                 timestamp: new Date(),
             };
 
-            setMessages((prev) => [...prev, botMessage]);
+            setMessages((prev) => {
+                const updatedMessages = [...prev, botMessage];
+                // Save to localStorage
+                saveChatToStorage(user?.id || null, updatedMessages);
+                return updatedMessages;
+            });
         } catch (error) {
             console.error('Error sending message:', error);
             const errorMessage: Message = {
@@ -134,7 +251,12 @@ export default function ChatBot() {
                 sender: 'bot',
                 timestamp: new Date(),
             };
-            setMessages((prev) => [...prev, errorMessage]);
+            setMessages((prev) => {
+                const updatedMessages = [...prev, errorMessage];
+                // Save error message to localStorage too
+                saveChatToStorage(null, updatedMessages);
+                return updatedMessages;
+            });
         } finally {
             setIsLoading(false);
         }
@@ -164,8 +286,8 @@ export default function ChatBot() {
             {isOpen && (
                 <Card
                     className={`fixed shadow-2xl flex flex-col z-50 border-2 border-purple-200 dark:border-purple-800 animate-in slide-in-from-bottom-4 duration-300 transition-all ${isMaximized
-                            ? 'inset-[12.5%] w-[75vw] h-[75vh]'
-                            : 'bottom-6 right-6 w-96 h-[600px]'
+                        ? 'inset-[12.5%] w-[75vw] h-[75vh]'
+                        : 'bottom-6 right-6 w-[450px] h-[600px]'
                         }`}
                 >
                     {/* Header */}
@@ -175,6 +297,16 @@ export default function ChatBot() {
                             <h3 className="font-semibold text-lg">Chat With Interview Vault</h3>
                         </div>
                         <div className="flex items-center gap-1">
+                            <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={handleClearHistory}
+                                className="h-8 w-8 text-white hover:bg-purple-800"
+                                aria-label="Clear chat history"
+                                title="Clear chat history"
+                            >
+                                <Trash2 className="h-4 w-4" />
+                            </Button>
                             <Button
                                 variant="ghost"
                                 size="icon"
