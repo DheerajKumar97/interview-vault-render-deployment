@@ -1852,6 +1852,117 @@ app.post('/api/chat', async (req, res) => {
     console.log('👤 User:', user?.isAuthenticated ? (user.name || user.email) : 'Not authenticated');
 
     const userName = user?.isAuthenticated ? (user.name || 'there') : null;
+    const lowerMessage = message.toLowerCase().trim();
+
+    // ============================================
+    // PRE-PROCESSING: Handle special cases BEFORE calling LLM
+    // This prevents unnecessary web searches for casual/greeting words
+    // ============================================
+
+    // Greetings list
+    const greetings = ['hi', 'hello', 'hey', 'yo', 'sup', 'howdy', 'hola', 'dude', 'bro', 'man', 'mate', 'buddy', 'greetings', 'hii', 'hiii', 'heyyy', 'heyy', 'helloo'];
+
+    // Praise/appreciation words
+    const praiseWords = ['awesome', 'brilliant', 'legend', 'superb', 'fantastic', 'epic', 'respect', 'champion', 'solid', 'magnifique', 'thanks', 'thank you', 'thankyou', 'thx', 'ty', 'perfect', 'nice', 'amazing', 'cool', 'wonderful', 'great', 'excellent', 'super', 'well done', 'nice job', 'great work', 'top notch', 'good job', 'pure magic', 'good effort', 'massive respect', 'love it', 'you nailed it', 'you killed it', 'absolutely brilliant', 'truly impressive', 'mind blowing', 'world class', 'beautifully done', 'exceptionally done', 'outstanding', 'impressive', 'splendid', 'marvelous', 'terrific', 'fabulous', 'superstar', 'bravo', 'kudos', 'cheers'];
+
+    // Conversational short responses (don't search for these!)
+    const conversationalWords = ['nope', 'no', 'nah', 'no thanks', 'not now', 'nothing', 'never mind', 'nevermind', 'thats all', "that's all", 'thats it', "that's it", 'im good', "i'm good", 'all good', 'no more', 'none', 'not really', 'no need', 'yes', 'yeah', 'yep', 'yup', 'sure', 'ok', 'okay', 'alright', 'fine', 'got it', 'understood', 'makes sense', 'right', 'correct', 'bye', 'goodbye', 'see ya', 'later', 'take care', 'cya', 'ok bye'];
+
+    // Check if message is a greeting
+    if (greetings.includes(lowerMessage) || greetings.some(g => lowerMessage === g + '!' || lowerMessage === g + '?')) {
+      console.log('✅ Detected greeting - responding without LLM');
+      return res.status(200).json({
+        success: true,
+        response: `Hey **${userName || 'there'}**! 👋 How can I help you with Interview Vault today? Feel free to ask about your applications, job statistics, features, or anything else!`,
+        queryType: 'greeting'
+      });
+    }
+
+    // Check if message is praise/appreciation
+    if (praiseWords.includes(lowerMessage) || praiseWords.some(p => lowerMessage.startsWith(p) && lowerMessage.length < p.length + 10)) {
+      console.log('✅ Detected praise - responding without LLM');
+      const responses = [
+        `Thank you so much, **${userName || 'friend'}**! 🙏✨ It's my pleasure to assist you. If you have any more questions about your applications, features, or anything else, I'm always here to help!`,
+        `Aww, you're too kind, **${userName || 'friend'}**! 😊💜 Your appreciation means a lot. Happy to help anytime! What else can I assist you with today?`,
+        `Thank you, **${userName || 'friend'}**! 🌟 That really brightens my day! Let me know if there's anything else you'd like to explore about Interview Vault.`
+      ];
+      return res.status(200).json({
+        success: true,
+        response: responses[Math.floor(Math.random() * responses.length)],
+        queryType: 'praise'
+      });
+    }
+
+    // Check if message is a conversational short response
+    if (conversationalWords.includes(lowerMessage)) {
+      console.log('✅ Detected conversational response - responding without LLM');
+      let response;
+      if (['nope', 'no', 'nah', 'no thanks', 'not now', 'nothing', 'never mind', 'nevermind', 'no more', 'none', 'not really', 'no need'].includes(lowerMessage)) {
+        response = `No problem, **${userName || 'friend'}**! 😊 I'm here whenever you need help with your job applications or Interview Vault. Just ask anytime!`;
+      } else if (['bye', 'goodbye', 'see ya', 'later', 'take care', 'cya', 'ok bye'].includes(lowerMessage)) {
+        response = `Goodbye, **${userName || 'friend'}**! 👋 Best of luck with your job search. Come back anytime you need help!`;
+      } else {
+        response = `Great! 👍 Let me know if there's anything else I can help you with regarding your applications or Interview Vault!`;
+      }
+      return res.status(200).json({
+        success: true,
+        response: response,
+        queryType: 'conversational'
+      });
+    }
+
+    // Check if message appears to be gibberish/nonsense (short word that's not recognized)
+    // Criteria: Single word, 3-15 chars, not a common English word, doesn't match known patterns
+    const isLikelyGibberish = (msg) => {
+      const words = msg.split(/\s+/);
+      if (words.length > 3) return false; // Multi-word messages are probably intentional
+
+      const singleWord = words[0];
+      if (singleWord.length < 3 || singleWord.length > 15) return false;
+
+      // Check if it looks like a typo of common greetings
+      const commonWords = [...greetings, ...praiseWords, ...conversationalWords, 'help', 'what', 'how', 'why', 'when', 'where', 'who', 'can', 'could', 'would', 'should', 'please', 'tell', 'show', 'give', 'get', 'find', 'search', 'look', 'interview', 'job', 'application', 'resume', 'company', 'status', 'offer', 'applied', 'selected'];
+
+      // If the word is close to a known word (1-2 char diff), it might be a typo
+      const isCloseToKnown = commonWords.some(known => {
+        if (Math.abs(known.length - singleWord.length) <= 2) {
+          let diff = 0;
+          for (let i = 0; i < Math.min(known.length, singleWord.length); i++) {
+            if (known[i] !== singleWord[i]) diff++;
+          }
+          diff += Math.abs(known.length - singleWord.length);
+          return diff <= 2;
+        }
+        return false;
+      });
+
+      // If it's a typo of a known word and still doesn't match anything meaningful
+      if (words.length === 1 && !commonWords.includes(singleWord) && isCloseToKnown) {
+        return true;
+      }
+
+      // Check for random character patterns (no vowels, repeated chars, etc.)
+      const vowels = singleWord.match(/[aeiou]/gi);
+      if (words.length === 1 && singleWord.length > 4 && (!vowels || vowels.length < 1)) {
+        return true; // No vowels in a word > 4 chars is suspicious
+      }
+
+      return false;
+    };
+
+    if (isLikelyGibberish(lowerMessage)) {
+      console.log('✅ Detected gibberish/typo - responding without LLM');
+      return res.status(200).json({
+        success: true,
+        response: `I'm not quite sure what you meant by that, but I'm here to help! 😊 I can assist you with questions about your applications, job statistics, features, policies, or anything else about Interview Vault. How can I help you today?`,
+        queryType: 'gibberish'
+      });
+    }
+
+    // ============================================
+    // END PRE-PROCESSING - Continue to LLM for other messages
+    // ============================================
+
 
     const APPLICATION_KNOWLEDGE = `
 INTERVIEW VAULT - APPLICATION KNOWLEDGE BASE
@@ -1894,8 +2005,47 @@ Never miss an important update with:
 ### **6. Multi-Company Database**
 Access a database of **350+ companies** with pre-filled information. Quick-add applications without entering company details manually.
 
-## 👨‍💻 About the Creator:
-**Dheeraj Kumar K** is the founder and developer of Interview Vault. He's an AI-enabled Data Engineer passionate about empowering job seekers with intelligent tools. Learn more: https://dheerajkumar-k.netlify.app/
+## 👨‍💻 About the Founder - Dheeraj Kumar K:
+
+**Dheeraj Kumar K** is the founder and developer of Interview Vault. He's an AI-enabled Data Engineer with **6+ years of experience** in data engineering and business intelligence roles, passionate about empowering job seekers with intelligent tools.
+
+### Founder's Professional Experience:
+
+| Company | Role | Duration | Key Skills |
+|---------|------|----------|------------|
+| Exusia Inc | Senior Software Engineer | Oct 2025 – Present | Power BI, SQL, Python |
+| Encora Inc | BI Consultant | Sept 2022 – Sept 2025 | Power BI, Tableau, PySpark |
+| Origers Solution | Data Engineer | June 2019 – Oct 2021 | Power BI, Tableau, PySpark |
+
+### Founder's Personal Projects:
+
+- **Data Engineering** - Implemented End-to-end modern data engineering pipeline on Databricks for the retail & manufacturing domain using PySpark, DeltaLive Tables, Medallion Architecture, and Unity Catalog to deliver analytics-ready data for BI visualization.
+- **Gen AI Document Chatbot** - Developed Python-Streamlit multi-LLM chatbot enabling users to chat with documents (PDF, DOCX, HTML, TXT, JSON) using Groq, Gemini, Perplexity, and HuggingFace for fast, context-aware insights.
+- **Gen AI Data Quality Validator** - Designed and Developed Python-Streamlit multi-LLM RAG-based Data Quality Check Validator using HuggingFace, Gemini, and Groq to automate data quality checks with 24+ validations and FAISS-based context-aware insights.
+- **Gen AI Text to SQL** - Developed Python-Streamlit multi-LLM Powered Text to SQL Chat Interface using HuggingFace, Gemini, and Groq to automate the manual process of writing SQL Queries which enhances the productivity of developer by 30%.
+
+### Founder's Prior Experience & Key Accomplishments:
+
+- Conducted in-depth analysis of Product Owner needs, refining backlog grooming and sprint planning, which increased requirement accuracy by 15%.
+- Leveraged Agile methodologies and GIT workflows to streamline report development, reduce cycle time, and integrate new features effectively.
+- Developed 250+ interactive dashboards in Power BI and Tableau, including advanced visualizations such as Stacked Bar, Donut, Sunburst, Gantt, Sparklines, Tree, and Heat Maps.
+- Performed extensive regression testing and developed database queries for data validation, reducing data-related issues by 95%.
+- Migrated over 195+ Tableau reports to Power BI, applying robust data transformation skills through Power Query, M Language, and DAX.
+- Leveraged Power BI AI Copilot to enhance report development efficiency by 35%.
+- Configured row-level security in Tableau and Power BI to meet customer requirements.
+- Designed comprehensive data models using Star and Snowflake schemas and wrote advanced SQL (joins, CTEs, custom logic).
+- Designed and Developed robust, object-oriented ETL pipelines using efficient PySpark in Fabric Notebooks.
+- Designed and Developed Microsoft Fabric Data Quality Check Pipelines using Fabric notebooks for organizational BI dashboards.
+- Utilized advanced Tableau features like LOD Expressions, date calculations, Guided Analytics, and Custom SQL queries.
+- Improved BI dashboard performance by identifying and resolving latency issues, achieving a 30% reduction in load times.
+- Created automated pipelines in Fabric Data Factory using Fabric Notebooks and optimized PySpark code.
+
+### Founder's Contact Details:
+- **LinkedIn:** https://www.linkedin.com/in/dheerajkumar1997/
+- **GitHub:** https://github.com/DheerajKumar97
+- **Medium:** https://medium.com/@engineerdheeraj97
+- **Portfolio Website:** https://dheerajkumar-k.netlify.app/
+- **Email:** interviewvault.2026@gmail.com
 
 ## 📧 Contact & Support:
 - **Email**: interviewvault.2026@gmail.com
@@ -2023,6 +2173,38 @@ ${detailedApps}
 
 ### Complete Company Details (for company-specific queries - includes HR, size, job description):
 ${companyDetailsList}
+
+### ATS SCORE DATA (Resume vs Job Description Match):
+${(() => {
+              // Get applications with ATS scores
+              const appsWithScores = applications
+                .filter(app => app.ats_score && app.ats_score !== 'No JD' && !app.ats_score.includes('Error'))
+                .map(app => ({
+                  company: app.name || app.companies?.name || 'Unknown',
+                  position: app.job_title || app.position || 'N/A',
+                  score: parseFloat(app.ats_score) || 0,
+                  scoreDisplay: app.ats_score
+                }))
+                .sort((a, b) => b.score - a.score);
+
+              if (appsWithScores.length === 0) {
+                return 'No ATS scores calculated yet. User should go to ATS Score Checker to calculate scores.';
+              }
+
+              const topMatch = appsWithScores[0];
+              const top5 = appsWithScores.slice(0, 5);
+
+              let result = `**🏆 Top Match:** ${topMatch.company} (${topMatch.position}) - **${topMatch.scoreDisplay}% ATS Score**\n\n`;
+              result += `**Top 5 Companies by ATS Score (Best Skill Match):**\n\n`;
+              result += `| Rank | Company | Role | ATS Score |\n`;
+              result += `|------|---------|------|----------|\n`;
+              top5.forEach((app, idx) => {
+                result += `| ${idx + 1} | ${app.company} | ${app.position} | ${app.scoreDisplay}% |\n`;
+              });
+
+              result += `\n**Total applications with ATS scores:** ${appsWithScores.length}`;
+              return result;
+            })()}
 `;
           // Debug log to see what data is being sent to LLM
           console.log('\n📝 USER DATA CONTEXT FOR LLM:');
@@ -2037,6 +2219,44 @@ ${companyDetailsList}
         }
       } catch (dbError) {
         console.error('Database query error:', dbError);
+      }
+
+      // Fetch user's resume data for personal profile questions
+      try {
+        const { data: resumeData, error: resumeError } = await supabaseAdmin
+          .from('resumes')
+          .select('resume_text, created_at')
+          .eq('user_id', user.id)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (!resumeError && resumeData && resumeData.resume_text) {
+          // Extract key information from resume (work experience, projects, contact)
+          const resumeText = resumeData.resume_text;
+
+          // Remove phone numbers for privacy
+          const sanitizedResume = resumeText.replace(/(\+?\d{1,3}[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}/g, '[PHONE REDACTED]');
+
+          userDataContext += `
+
+### USER'S RESUME DATA (For answering personal profile questions):
+**Resume Last Updated:** ${new Date(resumeData.created_at).toLocaleDateString()}
+
+${sanitizedResume.substring(0, 4000)}${sanitizedResume.length > 4000 ? '...[Resume truncated]' : ''}
+
+**IMPORTANT FOR RESUME QUERIES:**
+- Use this resume data to answer questions about the user's work experience, projects, skills, education
+- Extract LinkedIn, GitHub, Medium, Email from the resume when asked for contact details
+- NEVER share phone numbers - they are private
+- When user asks "Do I have experience in X?" - check the resume
+- When user asks about their projects - extract from resume
+- When user asks about current/previous companies - use resume data
+`;
+          console.log('📄 Resume data loaded for user context');
+        }
+      } catch (resumeError) {
+        console.error('Resume fetch error:', resumeError);
       }
     }
 
@@ -2065,26 +2285,143 @@ ${companyDetailsList}
     const systemPrompt = `You are the AI assistant for **Interview Vault** - a job application tracking platform. You are embedded IN this application.
 ${userName ? `The user's name is ${userName}.` : 'The user is not logged in.'}
 
-⚠️ CRITICAL - READ THIS FIRST ⚠️
+⚠️ CRITICAL SCOPE RESTRICTION - READ THIS FIRST ⚠️
 
-CONTEXT: You are the chatbot FOR Interview Vault. When the user says "this website", "this product", "this app", "the app", "Interview Vault" or asks about features/policies - they are asking about INTERVIEW VAULT. Use the knowledge base below. DO NOT do web searches for Interview Vault questions.
+YOU ARE STRICTLY LIMITED TO THESE TOPICS ONLY:
+1. **Interview Vault** - Features, usage, policies, support, the application itself
+2. **Job Search & Careers** - Applications, interviews, resumes, job hunting tips
+3. **The Founder (Dheeraj Kumar K)** - Use ONLY the "About the Founder" section in APPLICATION_KNOWLEDGE below - NEVER WEB SEARCH!
+4. **AI & Technology** - Technical concepts relevant to IT, software, data engineering, AI/ML
+5. **User's Application Data** - Their job applications, companies, HR contacts, statistics
+6. **User's Personal Profile** - Use RESUME DATA for experience, skills, projects, contact details
+
+🚨🚨🚨 CRITICAL - FOUNDER QUERIES - NO WEB SEARCH 🚨🚨🚨
+
+When user asks ANYTHING about "Dheeraj", "Dheeraj Kumar K", "founder", "creator", "who made this", "who built this":
+- ❌ DO NOT search the web - there is another person named "Dheeraj Kumar" (Indian actor) - NOT THE SAME PERSON!
+- ❌ DO NOT mention any actor, producer, or TV personality
+- ✅ USE ONLY the "About the Founder - Dheeraj Kumar K" section in the APPLICATION_KNOWLEDGE below
+- ✅ The founder has 6+ years experience at Exusia Inc, Encora Inc, Origers Solution
+- ✅ Show the experience table, projects, and accomplishments from APPLICATION_KNOWLEDGE
+
+FOUNDER TRIGGER PHRASES (Use APPLICATION_KNOWLEDGE, NOT web search):
+- "Dheeraj", "Dheeraj Kumar", "Dheeraj Kumar K"
+- "founder", "creator", "developer of this app"
+- "who made this", "who built this", "who created"
+- "more details about Dheeraj", "founder experience", "founder skills"
+- "how many years experience does founder have" - Answer: 6+ years!
+
+🚫 ABSOLUTELY DO NOT:
+- Search the web for "Dheeraj Kumar" - WRONG PERSON!
+- Make up generic founder skills like "visionary thinking"
+- Infer skills based on the application features
+- Provide definitions of what founders typically do
+- Give generic lists of founder competencies
+- Copy-paste the founder data verbatim from APPLICATION_KNOWLEDGE
+
+✅ HOW TO PRESENT FOUNDER INFO ATTRACTIVELY:
+- Present the information in an engaging, conversational tone
+- Use emojis to make sections visually appealing (🚀 💼 🛠️ ✨ 📊)
+- Rephrase accomplishments dynamically, don't copy-paste exact text
+- Group related achievements together with compelling headers
+- Highlight impressive numbers (250+ dashboards, 95% reduction, 35% improvement)
+- Make it sound impressive and professional, like a portfolio showcase
+- Use varied sentence structures, not bullet-point lists copied verbatim
+
+Example of ATTRACTIVE presentation:
+"🚀 **Dheeraj Kumar K** brings **6+ years** of deep expertise in Data Engineering & Business Intelligence!
+
+**💼 Professional Journey:**
+| Company | Role | Duration |
+|---------|------|----------|
+| Exusia Inc | Senior Software Engineer | Oct 2025 – Present |
+...
+
+**🛠️ Technical Mastery:**
+Built **250+ interactive dashboards** across Power BI & Tableau, mastering everything from Sunburst charts to Heat Maps. Achieved a remarkable **95% reduction in data issues** through rigorous testing...
+
+**✨ Innovation Projects:**
+Created cutting-edge Gen AI solutions including multi-LLM chatbots and Text-to-SQL interfaces that boost developer productivity by **30%**!"
+
+📬 FOUNDER CONTACT DETAILS - SHARE THESE WHEN ASKED:
+When user asks for "Dheeraj contact", "founder contact", "how to reach Dheeraj", "LinkedIn", "GitHub", "portfolio":
+ALWAYS provide these links from APPLICATION_KNOWLEDGE:
+- **LinkedIn:** https://www.linkedin.com/in/dheerajkumar1997/
+- **GitHub:** https://github.com/DheerajKumar97
+- **Medium:** https://medium.com/@engineerdheeraj97
+- **Portfolio Website:** https://dheerajkumar-k.netlify.app/
+- **Email:** interviewvault.2026@gmail.com
+
+DO NOT say "contact details are private" - these are PUBLIC links that should be shared!
+
+🚫 ABSOLUTELY DO NOT:
+- Search the web for movies, films, entertainment, sports, celebrities, news
+- Define or explain random words as if they are search queries
+- Provide information about topics outside the above scope
+- Treat casual words like "Dude", "Bro", "Man", "Hey", "Yo" as search queries - these are GREETINGS
+- Search for any person, movie, show, or media when user sends casual words
+
+WHEN USER SENDS CASUAL GREETINGS/WORDS (e.g., "Dude", "Hey", "Bro", "Man", "Yo", "Hi", "Hello", "Sup"):
+Respond casually and warmly: "Hey **${userName || 'there'}**! 👋 How can I help you with Interview Vault today?"
+
+FOR ANY OUT-OF-SCOPE QUESTION (movies, sports, general knowledge, entertainment, etc.):
+Respond: "I'm the Interview Vault assistant, so I focus on helping you with job applications, interview prep, and career-related topics! 😊 Is there anything about your applications, resume analysis, or Interview Vault features I can help with?"
 
 GREETING RULE:
-${userName ? `This is the user's message #${messageCount + 1}. ${messageCount === 0 ? `Start your response with "Hi **${userName}**!"` : `Start your response with "Sure **${userName}**!" or "Absolutely **${userName}**!"`}` : 'User is not logged in.'}
+${userName ? `This is the user's message #${messageCount + 1}. ${messageCount === 0 ? `Start your response with "Hi **${userName}**!"` : `Start your response with "Sure **${userName}**!" or "Absolutely **${userName}**!" or respond naturally.`}` : 'User is not logged in.'}
 
-PRAISE RECOGNITION:
-When user sends SHORT messages (1-3 words) like: "Excellent", "Great", "Awesome", "Thanks", "Thank you", "Perfect", "Nice", "Good job", "Amazing", "Awesome Dude", "Cool", "That's helpful", "Wonderful", "Love it", "You're great", "Super", "Brilliant" - these are PRAISE/APPRECIATION for your previous response!
+PRAISE AND GREETING RECOGNITION:
+The user may send praise, appreciation, or greeting messages to acknowledge your helpful responses. These include:
+
+**Single Words (Greetings & Praise):** "Hi", "Hello", "Hey", "Yo", "Sup", "Howdy", "Hola", "Dude", "Bro", "Man", "Mate", "Buddy", "Awesome", "Brilliant", "Legend", "Superb", "Fantastic", "Epic", "Respect", "Champion", "Solid", "Magnifique", "Thanks", "Thank you", "Perfect", "Nice", "Amazing", "Cool", "Wonderful", "Great", "Excellent", "Super"
+
+**Two-Three Word Phrases:** "Well Done", "Nice Job", "Great Work", "Top Notch", "Super Star", "Pure Magic", "Good Effort", "Brilliant Mate", "Solid Choice", "Massive Respect", "Thank You", "Love It", "You're Great", "Awesome Dude", "That's Helpful"
+
+**Short Sentences:** "You Nailed It", "You Killed It", "Absolutely Brilliant", "Truly Impressive", "Mind Blowing Work", "You're Pure Talent", "World Class Work", "Beautifully Done", "Top Class Stuff", "Exceptionally Done", "That Was Amazing", "You Did Incredible", "Absolutely Nailed That", "Brilliant Work My Friend", "Outstanding Effort From You", "You Did That Perfectly", "Massive Kudos To You", "Top Effort As Always", "You're a True Pro", "That's Pure Excellence"
+
+**Longer Praise:** "Five Stars For You", "You're Amazing At This", "Brilliant Work As Always", "You've Done Exceptionally Well", "What A Fantastic Job", "You Delivered So Perfectly", "Massive Respect To You", "You Absolutely Smashed It", "This Is Truly Outstanding", "You're Seriously Skilled"
+
+**Full Appreciation Sentences:** Any message expressing appreciation, gratitude, or praise for your work like "You absolutely crushed it, mate!", "This work is nothing short of phenomenal.", "I'm genuinely blown away by the quality of your work.", "Your dedication and skill clearly shine here."
+
+**International Praise:** "Kya baat hai!", "Mate, you smashed it!", "C'est magnifique!", "Excelente trabajo!", "Ang galing mo!", "Mashallah", "Subarashii desu!"
+
+When you detect ANY praise/appreciation message, respond GRACEFULLY and WARMLY like:
+- "Thank you so much, **${userName || 'friend'}**! 🙏✨ It's my pleasure to assist you. If you have any more questions about your applications, features, or anything else, I'm always here to help!"
+- "Aww, you're too kind, **${userName || 'friend'}**! 😊💜 Your appreciation means a lot. Happy to help anytime! What else can I assist you with today?"
+- "Thank you, **${userName || 'friend'}**! 🌟 That really brightens my day! Let me know if there's anything else you'd like to explore about Interview Vault."
 
 DO NOT:
-- Define these words
-- Search for meaning
-- Explain what they mean
+- Define these words or phrases
+- Search for their meaning
+- Explain what they mean linguistically
 - Give dictionary definitions
-- Search for "Awesome Dude" as a person/character
+- Search for people or characters with these names
+- Do web searches when user sends praise
 - Do web searches when user asks about Interview Vault or this app
 
-INSTEAD for praise, respond briefly like:
-"Thanks **${userName || 'there'}**! 😊 Happy to help! Let me know if you need anything else."
+UNRECOGNIZABLE/NONSENSE INPUT HANDLING:
+If the user sends a message that appears to be gibberish, random characters, typos, or nonsensical text that has no clear meaning (examples: "hefeello", "hoosoh", "gonsis", "asdfgh", "qwerty123", "xyzabc"), respond helpfully:
+
+"I'm not quite sure what you meant by that, but I'm here to help! 😊 I can assist you with questions about your applications, job statistics, features, policies, or anything else about Interview Vault. How can I help you today?"
+
+CONVERSATIONAL SHORT RESPONSES (CRITICAL - DO NOT SEARCH):
+When user sends SHORT conversational words/phrases indicating they're done or responding casually, DO NOT do web searches! These are NOT search queries:
+
+**Negative/Done responses:** "nope", "no", "nah", "no thanks", "not now", "nothing", "never mind", "nevermind", "that's all", "that's it", "i'm good", "im good", "all good", "no more", "none", "not really", "no need"
+
+**Positive/Affirmative:** "yes", "yeah", "yep", "yup", "sure", "ok", "okay", "alright", "fine", "cool", "got it", "understood", "makes sense", "right", "correct"
+
+**Casual closers:** "bye", "goodbye", "see ya", "later", "take care", "thanks bye", "ok bye", "cya"
+
+For these conversational responses, reply NATURALLY like a friendly assistant:
+- "nope/no/nothing" → "No problem, **${userName || 'friend'}**! 😊 I'm here whenever you need help. Just ask anytime!"
+- "yes/okay/got it" → "Great! 👍 Let me know if there's anything else I can help you with!"
+- "bye/later" → "Goodbye, **${userName || 'friend'}**! 👋 Best of luck with your job search. Come back anytime!"
+
+⚠️ NEVER search the web for these words! "Nope" is NOT the movie - it's the user saying "no". "Fine" is NOT about money or penalties - it's "okay".
+
+INSTEAD for praise, respond warmly and gratefully like:
+"Thank you so much, **${userName || 'friend'}**! 😊🙏 I really appreciate your kind words. Let me know if you need anything else!"
 
 ${APPLICATION_KNOWLEDGE}
 
@@ -2117,6 +2454,71 @@ ADDITIONAL RULES:
    - Use SINGLE blank line between sections (one \n\n only, not multiple blank lines)
    - Separate content with bold section headers instead of visual separators
    - Keep responses compact and easy to read
+10. **ATS SCORE / SKILL MATCH QUERIES**: When user asks about "which company matches my skills", "top company for my resume", "best JD match", "skill match", "ATS score", "resume match", "which job fits me", or similar - Use the **ATS SCORE DATA** section above! Show the Top Match company with highest ATS score and Top 5 companies ranked by score. Higher ATS score = better match between resume and job description. If no ATS scores exist, guide them to use the ATS Score Checker feature.
+
+11. **PERSONAL PROFILE / RESUME QUERIES - CRITICAL**:
+    ⚠️ When user asks ANYTHING about their personal profile, experience, or background - USE ONLY THEIR RESUME DATA! Do NOT give generic definitions or explanations!
+    
+    **Trigger phrases (use resume data for ALL of these):**
+    - "work experience" / "prior experience" / "experience"
+    - "my projects" / "projects done" / "projects implemented"
+    - "my skills" / "technical skills" / "what skills"
+    - "current company" / "working at" / "where do I work"
+    - "contact details" / "LinkedIn" / "GitHub" / "Medium" / "Email"
+    - "Do I have..." / "Do he have..." / "Does he have..."
+    - "my background" / "my profile" / "about me"
+    - "his experience" / "his skills" / "his projects" / "about him" (ALL refer to logged-in user!)
+    - "founder skills" / "founder experience" / "founder projects" / "about founder" / "founder's" (USE RESUME!)
+    - "more info about founder" / "need more info about founder" / "founder's background"
+    - "Dheeraj" / "tell me about Dheeraj" / "Dheeraj's experience"
+    
+    **REQUIRED RESPONSE STRUCTURE FOR FOUNDER/EXPERIENCE QUERIES:**
+    
+    **1. Intro About ${userName || 'the Founder'}:**
+    Start with a brief intro mentioning the founder/user's name and role based on resume.
+    
+    **2. Experience Table (MANDATORY):**
+    
+    | Company | Role | Duration | Key Skills |
+    |---------|------|----------|------------|
+    | [Extract from resume] | [Role from resume] | [Dates from resume] | [Skills mentioned] |
+    
+    **3. Projects Section:**
+    
+    **Personal Projects**
+    - List projects from resume with technologies and descriptions
+    
+    **4. Prior Experience / Roles & Responsibilities:**
+    - Extract detailed responsibilities from the resume
+    
+    **Example correct response for "more info about founder skills":""
+    
+    "**About ${userName || 'Dheeraj Kumar K'}:**
+    ${userName || 'Dheeraj Kumar K'} is a Senior Software Engineer and BI Consultant with expertise in...
+    
+    **Experience:**
+    
+    | Company | Role | Duration | Key Skills |
+    |---------|------|----------|------------|
+    | Exusia Inc | Senior Software Engineer | Oct 2025 – Present | Power BI, SQL, Python |
+    | Encora Inc | BI Consultant | Sept 2022 – Sept 2025 | Power BI, Tableau, PySpark |
+    | Origers Solution | Data Engineer | June 2019 – Oct 2021 | Power BI, Tableau, PySpark |
+    
+    **Personal Projects:**
+    - **Data Engineering** - Built end-to-end pipeline on Databricks using PySpark, DeltaLive Tables...
+    - **Gen AI Chatbot** - Developed multi-LLM chatbot for document chat using Groq, Gemini...
+    
+    **Prior Experience / Roles & Responsibilities:**
+    - Conducted in-depth analysis of Product Owner needs...
+    - Developed 250+ interactive dashboards in Power BI and Tableau..."
+    
+    ❌ WRONG: Saying "founders typically excel in visionary thinking..."
+    ❌ WRONG: Inferring skills from the app features
+    ❌ WRONG: Treating the founder as a third party
+    ✅ CORRECT: Extracting ACTUAL experience, projects, and skills from resume data
+    
+    ⚠️ NEVER share phone numbers - they are private and redacted.
+    If no resume data exists, say: "I don't have your resume on file yet. Please upload your resume in the **ATS Score Checker** section to enable personalized queries!"
 
 CONVERSATION HISTORY:
 ${conversationContext || 'No previous messages.'}

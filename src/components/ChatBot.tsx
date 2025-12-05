@@ -158,11 +158,61 @@ export default function ChatBot() {
     }, [isOpen]);
 
     const formatMessage = (text: string) => {
-        // Remove horizontal separators (---, ___, ===, etc.)
+        // Remove horizontal separators (---, ___, ===, etc.) but not table separators
         let formatted = text.replace(/^[-_=]{3,}$/gm, '');
 
         // Remove multiple consecutive blank lines (keep only single blank line)
         formatted = formatted.replace(/\n{3,}/g, '\n\n');
+
+        // Convert markdown tables to HTML tables
+        const tableRegex = /\|(.+)\|\n\|[-:\s|]+\|\n((?:\|.+\|\n?)+)/g;
+        formatted = formatted.replace(tableRegex, (match, headerRow, bodyRows) => {
+            // Parse header
+            const headers = headerRow.split('|').map((h: string) => h.trim()).filter((h: string) => h);
+
+            // Parse body rows
+            const rows = bodyRows.trim().split('\n').map((row: string) => {
+                return row.split('|').map((cell: string) => cell.trim()).filter((cell: string) => cell);
+            });
+
+            // Build HTML table
+            let tableHtml = '<div class="overflow-x-auto my-3"><table class="w-full border-collapse text-sm">';
+
+            // Header
+            tableHtml += '<thead><tr class="bg-purple-600 text-white">';
+            headers.forEach((header: string) => {
+                tableHtml += `<th class="px-3 py-2 text-left font-semibold border border-purple-500">${header}</th>`;
+            });
+            tableHtml += '</tr></thead>';
+
+            // Body
+            tableHtml += '<tbody>';
+            rows.forEach((row: string[], index: number) => {
+                const bgClass = index % 2 === 0 ? 'bg-purple-50 dark:bg-purple-900/20' : 'bg-white dark:bg-gray-800';
+                tableHtml += `<tr class="${bgClass}">`;
+                row.forEach((cell: string, cellIndex: number) => {
+                    // Make the score column bold and add color based on score
+                    let cellContent = cell;
+                    if (cellIndex === row.length - 1 && cell.includes('%')) {
+                        const score = parseInt(cell);
+                        let colorClass = 'text-gray-600';
+                        if (score >= 80) colorClass = 'text-green-600 font-bold';
+                        else if (score >= 60) colorClass = 'text-yellow-600 font-bold';
+                        else colorClass = 'text-red-500 font-bold';
+                        cellContent = `<span class="${colorClass}">${cell}</span>`;
+                    }
+                    // Make first column (rank) bold
+                    if (cellIndex === 0) {
+                        cellContent = `<strong>${cell}</strong>`;
+                    }
+                    tableHtml += `<td class="px-3 py-2 border border-purple-200 dark:border-purple-700">${cellContent}</td>`;
+                });
+                tableHtml += '</tr>';
+            });
+            tableHtml += '</tbody></table></div>';
+
+            return tableHtml;
+        });
 
         // Convert markdown headers (### and ##) to bold text
         formatted = formatted.replace(/^###\s*(.+)$/gm, '<strong>$1</strong>');
@@ -172,20 +222,19 @@ export default function ChatBot() {
         formatted = formatted.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
 
         // Make common labels bold (Email:, Phone:, Address:, etc.)
-        formatted = formatted.replace(/^- ((?:Support Email|Alternate Email|Email|Phone|Fax|Address|Website|Contact Person|HR Contact Name|HR Contact Phone|HR Contact Email|Position|Status|Applied on):)/gm, '- <strong>$1</strong>');
+        formatted = formatted.replace(/^- ((?:Support Email|Alternate Email|Email|Phone|Fax|Address|Website|Contact Person|HR Contact Name|HR Contact Phone|HR Contact Email|Position|Status|Applied on|LinkedIn|GitHub|Medium|Portfolio Website|Portfolio):)/gm, '- <strong>$1</strong>');
 
+        // Convert URLs to links BEFORE converting newlines (to prevent <br> in URLs)
+        formatted = formatted.replace(
+            /(https?:\/\/[^\s<>"\n]+)/g,
+            '<a href="$1" target="_blank" rel="noopener noreferrer" class="text-primary underline">$1</a>'
+        );
 
         // Convert newlines to <br>
         formatted = formatted.replace(/\n/g, '<br>');
 
         // Remove excessive <br> tags (more than 2 consecutive)
         formatted = formatted.replace(/(<br>){3,}/g, '<br><br>');
-
-        // Convert URLs to links
-        formatted = formatted.replace(
-            /(https?:\/\/[^\s]+)/g,
-            '<a href="$1" target="_blank" rel="noopener noreferrer" class="text-primary underline">$1</a>'
-        );
 
         return formatted;
     };
