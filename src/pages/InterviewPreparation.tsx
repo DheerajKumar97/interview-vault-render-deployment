@@ -397,22 +397,11 @@ const InterviewPreparation = () => {
             return 'code';
         };
 
-        // Function to convert **bold** markdown to HTML
-        const convertBoldToHtml = (text: string): JSX.Element[] => {
-            const parts = text.split(/(\*\*[^*]+\*\*)/g);
-            return parts.map((part, idx) => {
-                if (part.startsWith('**') && part.endsWith('**')) {
-                    const boldText = part.slice(2, -2);
-                    return <strong key={idx} className="font-bold text-blue-900">{boldText}</strong>;
-                }
-                return <span key={idx}>{part}</span>;
-            });
-        };
-
-        // Remove escape characters but preserve **bold** markers
+        // Remove escape characters and **bold** markers
         let cleanedText = text
             .replace(/\\\//g, '')
             .replace(/\\/g, '')
+            .replace(/\*\*/g, '')
             .trim();
 
         // Remove any section headers like "--- PART 1: ..." but keep questions
@@ -498,7 +487,7 @@ const InterviewPreparation = () => {
                         if (paragraphText && paragraphText.length > 10) {
                             result.push(
                                 <p key={`paragraph-${result.length}`} className="mb-4 text-gray-900 leading-relaxed text-justify">
-                                    {convertBoldToHtml(paragraphText)}
+                                    {paragraphText}
                                 </p>
                             );
                         }
@@ -603,7 +592,7 @@ const InterviewPreparation = () => {
                                     </h4>
                                     {content && content.length > 10 && (
                                         <p className="text-gray-900 leading-relaxed">
-                                            {convertBoldToHtml(content)}
+                                            {content}
                                         </p>
                                     )}
                                 </div>

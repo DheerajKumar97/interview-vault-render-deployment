@@ -852,20 +852,20 @@ TOTAL: EXACTLY 20 questions
 
 🚨 MANDATORY FORMATTING FOR CONCEPTUAL ANSWERS:
 ✅ EXACTLY 4-5 COMPLETE SENTENCES (NOT 1-2 sentences!)
-✅ EVERY technical term, formula, metric, tool MUST be in **bold**
 ✅ Minimum 100-120 words per answer
 ✅ Each sentence must add NEW technical information
+✅ Include technical terms, formulas, metrics, and tools
 
 Example (FOLLOW THIS EXACT FORMAT):
 Question: "Explain React state management in your e-commerce project"
 Answer:
-"**React Hooks** like **useState** and **useEffect** manage state and side effects in functional components, eliminating the need for class components. The **Virtual DOM** uses an **O(n) reconciliation algorithm** to efficiently update only changed elements, improving performance significantly. **useMemo** and **useCallback** hooks prevent unnecessary re-renders by memoizing expensive computations and function references. **React Context API** provides global state management with **Provider** and **Consumer** patterns, avoiding prop drilling. **React Fiber** architecture enables **incremental rendering** and **time-slicing**, allowing React to pause and resume work for better responsiveness."
+"React Hooks like useState and useEffect manage state and side effects in functional components, eliminating the need for class components. The Virtual DOM uses an O(n) reconciliation algorithm to efficiently update only changed elements, improving performance significantly. useMemo and useCallback hooks prevent unnecessary re-renders by memoizing expensive computations and function references. React Context API provides global state management with Provider and Consumer patterns, avoiding prop drilling. React Fiber architecture enables incremental rendering and time-slicing, allowing React to pause and resume work for better responsiveness."
 
 **PART 2 (Questions 11-20): CODING - 50%**
 - Advanced difficulty
 - IDENTIFY TOP 3 SKILLS from Resume + Job Description
 - Distribute based on ROLE WEIGHTAGE (see table below)
-- Each answer: Brief explanation (2-3 sentences with **bold keywords**) + Complete Code (15-25 lines) + How it works (4-5 sentences with **bold keywords**) + Real-world context (4-5 sentences)
+- Each answer: Brief explanation (2-3 sentences) + Complete Code (15-25 lines) + How it works (4-5 sentences) + Real-world context (4-5 sentences)
 
 ========================================
 ROLE-SPECIFIC CODING DISTRIBUTION
@@ -944,17 +944,17 @@ DO NOT include section headers like "PART 1" or "CONCEPTUAL QUESTIONS". Start di
 
 Question 1: [Conceptual question about project/implementation]
 Answer:
-[MANDATORY: Write 4-5 COMPLETE sentences here. Each sentence must contain **bold** technical keywords. DO NOT write just 1-2 short sentences. Explain the concept with technical depth, formulas, metrics, and implementation details. Minimum 100 words.]
+[MANDATORY: Write 4-5 COMPLETE sentences here. Include technical keywords, formulas, and metrics. DO NOT write just 1-2 short sentences. Explain the concept with technical depth and implementation details. Minimum 100 words.]
 
 Question 2: [Conceptual question]
 Answer:
-[MANDATORY: Write 4-5 COMPLETE sentences here. Each sentence must contain **bold** technical keywords. DO NOT write just 1-2 short sentences. Explain with algorithms, performance metrics, and technical architecture. Minimum 100 words.]
+[MANDATORY: Write 4-5 COMPLETE sentences here. Include technical terms, algorithms, and performance metrics. DO NOT write just 1-2 short sentences. Explain with technical architecture details. Minimum 100 words.]
 
-[Questions 3-10 follow SAME MANDATORY 4-5 sentence format with **bold** keywords]
+[Questions 3-10 follow SAME MANDATORY 4-5 sentence format]
 
 Question 11: [Coding question in primary skill]
 Answer:
-[2-3 sentences with **bold** keywords: problem, approach, complexity]
+[2-3 sentences: problem, approach, complexity]
 
 \`\`\`language
 # Complete executable code (15-25 lines)
@@ -962,7 +962,7 @@ Answer:
 # Production-ready with edge cases
 \`\`\`
 
-[3-4 sentences with **bold** keywords: how code works, key details, performance, real-world use]
+[3-4 sentences: how code works, key details, performance, real-world use]
 
 [Questions 12-20 follow same format, distributed by role weightage]
 
@@ -972,9 +972,8 @@ CRITICAL RULES - STRICT ENFORCEMENT
 ❌ NO section headers like "--- PART 1: CONCEPTUAL QUESTIONS (1-10) ---"
 ❌ NO separators or dividers between questions
 ❌ NO short 1-2 sentence answers (REJECTED!)
-❌ NO answers without **bold** keywords (REJECTED!)
 ✅ Start IMMEDIATELY with "Question 1: ..."
-✅ Use **bold** for EVERY technical term, formula, metric, tool
+✅ Include technical terms, formulas, metrics, and tools in answers
 ✅ Conceptual answers: MANDATORY 4-5 COMPLETE sentences (100+ words each)
 ✅ EXACTLY 20 questions numbered sequentially from 1 to 20
 ✅ Count your sentences - if answer has less than 4 sentences, ADD MORE
@@ -985,10 +984,9 @@ MANDATORY CHECKLIST - VERIFY BEFORE SUBMITTING
 ☐ EXACTLY 20 questions numbered 1-20?
 ☐ NO section headers or separator lines?
 ☐ Questions 1-10: Each answer has 4-5 COMPLETE sentences (100+ words)?
-☐ Questions 1-10: EVERY technical keyword is wrapped in **bold**?
+☐ Questions 1-10: Includes technical terms, formulas, and metrics?
 ☐ Questions 1-10: Count sentences - if less than 4, REJECTED!
 ☐ Questions 11-20: Coding questions with role weightage distribution?
-☐ EVERY answer uses **bold** for ALL technical terms, formulas, metrics?
 ☐ No short 1-2 sentence answers anywhere?
 
 NOW GENERATE ALL 20 QUESTIONS STARTING WITH "Question 1:":`;
