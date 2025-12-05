@@ -849,9 +849,9 @@ TOTAL: EXACTLY 20 questions
 - Core concepts on PRACTICAL IMPLEMENTATION
 - Related to PROJECTS in resume and job requirements
 - Test "WHY" and "HOW" things work in production
-- Each answer: EXACTLY 2-3 lines ONLY (MAX 60 words, extremely concise)
+- Each answer: MINIMUM 4 lines (4-5 complete sentences with **bold** keywords)
 - CRITICAL: Use **bold** for ALL technical keywords, formulas, metrics, tools, and key concepts
-- Example: "**React Hooks** like **useState** and **useEffect** manage state and side effects. **Virtual DOM** uses **O(n)** reconciliation. **useMemo** prevents unnecessary re-renders."
+- Example: "**React Hooks** like **useState** and **useEffect** manage state and side effects in functional components. The **Virtual DOM** uses **O(n)** reconciliation algorithm for efficient updates. **useMemo** and **useCallback** prevent unnecessary re-renders by memoizing values. **React Fiber** architecture enables incremental rendering and prioritization of updates."
 
 **PART 2 (Questions 11-20): CODING - 50%**
 - Advanced difficulty
@@ -936,11 +936,11 @@ DO NOT include section headers like "PART 1" or "CONCEPTUAL QUESTIONS". Start di
 
 Question 1: [Conceptual question about project/implementation]
 Answer:
-[2-3 lines ONLY with **bold** keywords for technical terms, formulas, metrics. Maximum 60 words total.]
+[MINIMUM 4 lines with **bold** keywords for technical terms, formulas, metrics. 4-5 complete sentences with technical depth.]
 
 Question 2: [Conceptual question]
 Answer:
-[2-3 lines ONLY with **bold** keywords. Maximum 60 words total.]
+[MINIMUM 4 lines with **bold** keywords. 4-5 complete sentences with technical depth.]
 
 [Questions 3-10 follow same short format]
 
@@ -965,7 +965,7 @@ CRITICAL RULES
 ❌ NO separators or dividers between questions
 ✅ Start IMMEDIATELY with "Question 1: ..."
 ✅ Use **bold** for technical terms, formulas, metrics, tools
-✅ Conceptual answers: 2-3 lines MAXIMUM (under 60 words)
+✅ Conceptual answers: MINIMUM 4 lines (4-5 sentences with **bold**)
 ✅ EXACTLY 20 questions numbered sequentially from 1 to 20
 
 ========================================
@@ -973,7 +973,7 @@ CHECKLIST
 ========================================
 ☐ EXACTLY 20 questions numbered 1-20?
 ☐ NO section headers or separator lines?
-☐ Questions 1-10 conceptual (2-3 lines with **bold**)?
+☐ Questions 1-10 conceptual (minimum 4 lines with **bold**)?
 ☐ Questions 11-20 coding (role weightage distribution)?
 ☐ Every answer uses **bold** for technical keywords?
 
