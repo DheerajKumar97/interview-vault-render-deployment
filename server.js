@@ -1114,7 +1114,11 @@ const supabase = createClient(supabaseUrl, supabaseKey, {
   }
 });
 
-// TEST: Simple cron job to verify cron is working
+// ⚠️  IMPORTANT: These node-cron jobs work locally but NOT reliably on Render Free Tier
+// Render's free tier spins down services after inactivity, stopping cron jobs.
+// For production, use the separate Render Cron Job service (see EMAIL_DIGEST_CRON_SETUP.md)
+
+// TEST: Simple cron job to verify cron is working (LOCAL DEVELOPMENT ONLY)
 cron.schedule('* * * * *', () => {
   const timestamp = new Date().toISOString();
   const logMessage = `[${timestamp}] Cron is working! Current time: ${new Date().toLocaleTimeString()}\n`;
@@ -1126,6 +1130,7 @@ cron.schedule('* * * * *', () => {
 });
 
 // Scheduled Digest Job (Runs every minute to check for due digests)
+// ⚠️  LOCAL DEVELOPMENT ONLY - Use Render Cron Job service for production
 cron.schedule('* * * * *', async () => {
   console.log('⏰ Checking for scheduled email digests...');
   try {
